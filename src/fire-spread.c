@@ -7,13 +7,20 @@
 #include <omp.h>
 
 #include "dtype.h"
-#include "io.h"
 #include "alloc.h"
-#include "focalfuns.h"
-#include "queue.h"
 #include "angle.h"
-#include "quantile.h"
 #include "date.h"
+#include "queue.h"
+#include "focalfuns.h"
+#include "vutils.h"
+
+/**
+
+#include "io.h"
+
+#include "quantile.h"
+
+**/
 
 #define SUCCESS  0
 #define FAILURE -1
@@ -208,7 +215,7 @@ int modCount = 0;
 int i, j;
 bool *valid;
 
-	balloc(&valid, nfire);
+	alloc((void**)&valid, nfire, sizeof(bool));
 
 	for (j=0; j<nfire; j++){
 		if (arr[j] == 0) valid[j] = false; else valid[j] = true;
@@ -359,16 +366,15 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 	if (smoothdist < 0){ printf("smooth-dist must be >= 0.\n"); exit(1);}
 
 
-
-	icalloc(&yy, nb);
-	icalloc(&mm, nb);
-	icalloc(&ym, nb);
-	icalloc(&season, nb);
+	alloc((void**)&yy,     nb, sizeof(int));
+	alloc((void**)&mm,     nb, sizeof(int));
+	alloc((void**)&ym,     nb, sizeof(int));
+	alloc((void**)&season, nb, sizeof(int));
 
 	smoothsize = (smoothdist*2+1)*(smoothdist*2+1);
-	//fcalloc(&neighbor, (smoothdist*2+1)*(smoothdist*2+1));
 
-	icalloc_2D(&dirmask, 16, smoothsize);
+
+	alloc_2D((void***)&dirmask, 16, smoothsize, sizeof(int));
 	for (ii=-1*smoothdist, k=0; ii<=smoothdist; ii++){
 	for (jj=-1*smoothdist; jj<=smoothdist; jj++, k++){
 
@@ -417,8 +423,9 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 	fclose(fp);
 
 
-	icalloc2u_2D(&INP, nb, nc);
-	dcalloc(&bm, 12);
+	alloc_2D((void***)&INP, nb, nc, sizeof(int2u));
+	alloc((void**)&bm, 12, sizeof(double));
+
 	if ((fp = fopen(argv[1], "rb")) == NULL){
 		printf("Unable to open input file!\n"); exit(1);}
 
@@ -468,23 +475,23 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 	#pragma omp for schedule(dynamic,1)
 	for (S=season[0]; S<=season[nb-1]; S++){
 
-		balloc(&OLD_BOOL, nc);
-		ialloc(&OLD_SEGM, nc);
-		balloc(&NOW_BOOL, nc);
-		ialloc(&NOW_SEGM, nc);
+		alloc((void**)&OLD_BOOL, nc, sizeof(bool));
+		alloc((void**)&OLD_SEGM, nc, sizeof(int));
+		alloc((void**)&NOW_BOOL, nc, sizeof(bool));
+		alloc((void**)&NOW_SEGM, nc, sizeof(int));
 
-		bcalloc(&FIRE_BOOL, nc);
-		icalloc(&FIRE_SEGM, nc);
-		icalloc(&FIRE_TIME, nc);
-		icalloc(&FIRE_SEED, nc);
+		alloc((void**)&FIRE_BOOL, nc, sizeof(bool));
+		alloc((void**)&FIRE_SEGM, nc, sizeof(int));
+		alloc((void**)&FIRE_TIME, nc, sizeof(int));
+		alloc((void**)&FIRE_SEED, nc, sizeof(int));
 
-		icalloc(&FIRE_COPY, nc);
+		alloc((void**)&FIRE_COPY, nc, sizeof(int));
 
-		bcalloc(&VISITED, nc);
+		alloc((void**)&VISITED, nc, sizeof(bool));
 
-		icalloc(&OBJ_ID, MAX_OBJECTS);
-		icalloc_2D(&OBJ_SEED, 2, MAX_OBJECTS);
-		icalloc_3D(&OBJ_GAIN, 366, 9, MAX_OBJECTS);
+		alloc((void**)&OBJ_ID, MAX_OBJECTS, sizeof(int));
+		alloc_2D((void***)&OBJ_SEED, 2, MAX_OBJECTS, sizeof(int));
+		alloc_3D((void****)&OBJ_GAIN, 366, 9, MAX_OBJECTS, sizeof(int));
 
 		for (b=0; b<nb; b++){
 			if (season[b] != S) continue;
@@ -499,26 +506,6 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 				}
 			}
 		}
-	/**
-		ialloc2u(&INP, nc);
-		if ((fp = fopen(argv[1], "rb")) == NULL){
-			printf("Unable to open input file!\n"); exit(1);}
-
-		for (b=0; b<nb; b++){
-			if ((res = fread((void*)INP, sizeof(int2u), nc, fp)) != nc){
-			printf("reading error!\n"); exit(1);}
-
-			for (p=0; p<nc; p++){
-				if (INP[p] > 0 && INP[p] < 367){
-					if (FIRE_TIME[p] == 0) FIRE_TIME[p] = (int)INP[p];
-					FIRE_BOOL[p] = true;
-				}
-			}
-		}
-		fclose(fp);
-		free((void*)INP);
-	**/
-
 
 
 		/** delete all patches < maxsize pixels
@@ -527,7 +514,7 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 		nseg = imax(FIRE_SEGM, nc);
 
 		if (max___size > 0){
-			icalloc(&FIRE_HIST, nseg);
+			alloc((void**)&FIRE_HIST, nseg, sizeof(int));
 			for (p=0; p<nc; p++){ // compute histogram
 				if (FIRE_BOOL[p]) FIRE_HIST[FIRE_SEGM[p]-1]++;
 			}
@@ -963,10 +950,10 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 	**************************************************************************
 	*************************************************************************/
 
-		icalloc(&SUB_SEGM, nc);
+		alloc((void**)&SUB_SEGM, nc, sizeof(int));
 
-		bcalloc(&SUBOBJ_VALID,   MAX_OBJECTS);
-		icalloc(&SUBOBJ_MINTIME, MAX_OBJECTS);
+		alloc((void**)&SUBOBJ_VALID, MAX_OBJECTS, sizeof(bool));
+		alloc((void**)&SUBOBJ_MINTIME, MAX_OBJECTS, sizeof(int));
 
 		// initialize new queue
 		if ((fifo = create_queue()) == NULL){
@@ -1034,8 +1021,8 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 		// free queue's memory
 		destroy_queue(fifo); fifo = NULL;
 
-		icalloc_2D(&SUBOBJ_SEED,     2, nsub);
-		dcalloc_2D(&SUBOBJ_SEEDCALC, 3, nsub);
+		alloc_2D((void***)&SUBOBJ_SEED, 2, nsub, sizeof(int));
+		alloc_2D((void***)&SUBOBJ_SEEDCALC, 3, nsub, sizeof(double));
 
 		// calculate the potential seed points for every sub-patch
 		for (i=0, p=0; i<ny; i++){
@@ -1055,7 +1042,7 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 			SUBOBJ_SEED[1][i] = (int)round(SUBOBJ_SEEDCALC[1][i]/SUBOBJ_SEEDCALC[2][i]);
 		}
 
-		pulverize_2D((void*)SUBOBJ_SEEDCALC, 3);
+		free_2D((void**)SUBOBJ_SEEDCALC, 3);
 
 
 	/** SECOND PHASE *** re-assign sub-patches with no own seed point ********
@@ -1064,10 +1051,10 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 	**************************************************************************
 	*************************************************************************/
 
-		icalloc(&ADJ_ID,    MAX_OBJECTS);
-		icalloc(&ADJ_SUBID, MAX_OBJECTS);
-		icalloc(&ADJ_TIME,  MAX_OBJECTS);
-		bcalloc(&ADJ_TODO,  MAX_OBJECTS);
+		alloc((void**)&ADJ_ID, MAX_OBJECTS, sizeof(int));
+		alloc((void**)&ADJ_SUBID, MAX_OBJECTS, sizeof(int));
+		alloc((void**)&ADJ_TIME, MAX_OBJECTS, sizeof(int));
+		alloc((void**)&ADJ_TODO, MAX_OBJECTS, sizeof(bool));
 
 		// proceed until all sub-patches are valid!
 		while ((nsub_invalid = nsub-bsum(SUBOBJ_VALID, nsub)) > 0 && mintime <=366){
@@ -1350,7 +1337,7 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 		free((void*)SUB_SEGM);
 		free((void*)SUBOBJ_MINTIME);
 		free((void*)SUBOBJ_VALID);
-		pulverize_2D((void*)SUBOBJ_SEED, 2);
+		free_2D((void**)SUBOBJ_SEED, 2);
 
 
 		// *** MOVE FIRE SEED CENTROIDS TO BURNT PIXELS ******************
@@ -1392,7 +1379,7 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 		}
 
 
-		icalloc(&FIRE_DENSITY, nc);
+		alloc((void**)&FIRE_DENSITY, nc, sizeof(int));
 
 		// *** COMPUTE FIRE DENSITY **************************************
 		// ***************************************************************
@@ -1413,8 +1400,8 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 
 		// *** COMPUTE THE LIFETIME OF EACH FIRE *************************
 		// ***************************************************************
-		icalloc(&OBJ_LIFETIME,  nfire);
-		icalloc(&OBJ_STARTTIME, nfire);
+		alloc((void**)&OBJ_LIFETIME, nfire, sizeof(int));
+		alloc((void**)&OBJ_STARTTIME, nfire, sizeof(int));
 		for (id=0; id<nfire; id++){
 			for (t=0, t0=0, t1=0; t<366; t++){
 
@@ -1436,7 +1423,8 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 
 		// *** COMPUTE THE TOTAL SIZE OF EACH FIRE ***********************
 		// ***************************************************************
-		icalloc(&FIRE_HIST, nfire);
+		alloc((void**)&FIRE_HIST, nfire, sizeof(int));
+		
 		for (p=0; p<nc; p++){
 			if (OLD_BOOL[p]) FIRE_HIST[OLD_SEGM[p]-1]++;
 		}
@@ -1486,15 +1474,15 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 		free((void*)OBJ_ID);
 		free((void*)OBJ_LIFETIME);
 		free((void*)OBJ_STARTTIME);
-		pulverize_2D((void*)OBJ_SEED, 2);
-		pulverize_3D((void*)OBJ_GAIN, 366, 9);
+		free_2D((void**)OBJ_SEED, 2);
+		free_3D((void***)OBJ_GAIN, 366, 9);
 
 	}
 
 	}
 
-	pulverize_2D((void*)dirmask, 16);
-	pulverize_2D((void*)INP, nb);
+	free_2D((void**)dirmask, 16);
+	free_2D((void**)INP, nb);
 	free((void*)yy);
 	free((void*)mm);
 	free((void*)bm);
