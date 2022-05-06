@@ -16,9 +16,9 @@ COPY --chown=docker:docker . .
 RUN echo "building fire-spread" && \
   make
 
-#FROM davidfrantz/fire-spread:latest as fire-spread
+FROM davidfrantz/fire-spread:latest as fire-spread
 
-#COPY --chown=docker:docker --from=builder $HOME/bin $HOME/bin
+COPY --chown=docker:docker --from=builder $HOME/bin $HOME/bin
 
 WORKDIR /home/docker
 
