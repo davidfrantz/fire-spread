@@ -20,7 +20,6 @@ jobs:
         run: docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
       - name: Build image
         run: |
-          docker pull $DOCKER_USER/$IMAGE_NAME:$VERSION
           docker build . --file Dockerfile --tag $IMAGE_NAME
       - name: Push image
         run: |
