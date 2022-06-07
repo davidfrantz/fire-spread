@@ -26,6 +26,10 @@ For details on methods, please, refer to our paper:
 |smooth-dist|see paper|
 |verbose|print detailed information (v) or be quiet (q)|
 
+**Sample call**:
+* fire-spread 03_mosaick/burndate_stack_00-14_mosaick-laea.dat 03_mosaick/burndate
+_stack_00-14_mosaick.txt 04_fire-spread-2/ laea 8086 9231 176 10 10 5 12 2 3 v*
+
 ## Input data
 ### input-stack
 * monthly stack of burned area data (DOY)
