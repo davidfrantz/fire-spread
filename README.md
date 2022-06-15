@@ -30,20 +30,24 @@ Use fire-spread through Docker:
     2) cd fire-spread
     3) make
 
-If this fails, consider using docker instead.
 Linux is required.
 The program will be installed in $HOME/bin
+
+**If this fails, consider using docker instead.**
 
 
 ## Test data
 
-A small testing dataset is included in this repository. 
+A small testing dataset is included in this repository (testdata). 
 You have to extract the data before using it.
 
 
 ## Usage
 
-    fire-spread input-stack input-dates output-dir basename nx ny nb init-searchdist track-searchdist temp-dist density-dist min-size smooth-dist verbose
+    fire-spread \
+        input-stack input-dates output-dir basename \
+        nx ny nb init-searchdist track-searchdist \
+        temp-dist density-dist min-size smooth-dist verbose
 
 
 |Argument| Short Description|
