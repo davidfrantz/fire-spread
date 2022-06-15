@@ -35,6 +35,12 @@ Linux is required.
 The program will be installed in $HOME/bin
 
 
+## Test data
+
+A small testing dataset is included in this repository. 
+You have to extract the data before using it.
+
+
 ## Usage
 
     fire-spread input-stack input-dates output-dir basename nx ny nb init-searchdist track-searchdist temp-dist density-dist min-size smooth-dist verbose
@@ -59,7 +65,17 @@ The program will be installed in $HOME/bin
 
 **Sample call**:
 
-    fire-spread 03_mosaick/burndate_stack_00-14_mosaick-laea.dat 03_mosaick/burndate_stack_00-14_mosaick.txt 04_fire-spread-2/ laea 8086 9231 176 10 10 5 12 2 3 v
+    docker run \
+        -v ~/testdata:/data \
+        -u $(id -u):$(id -g) \
+        -t --rm \
+        davidfrantz/fire-spread \
+        fire-spread \
+        /data/CCI_1M_DOY_2001-2020_LAEA_example.dat \
+        /data/timeseries.txt \
+        /data/output \
+        example_esacci \
+        1000 1000 240 10 10 5 12 2 3 v
 
 
 ## Input data
