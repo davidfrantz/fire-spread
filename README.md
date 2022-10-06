@@ -1,5 +1,7 @@
 # fire-spread
 
+v. 1.1
+
 ## Background
 
 Fire spread information on a large scale is still a missing key layer for a complete description of fire regimes.
@@ -30,7 +32,7 @@ Use fire-spread through Docker:
     2) cd fire-spread
     3) make
 
-Linux is required.
+Linux is required. GDAL is required.
 The program will be installed in $HOME/bin
 
 **If this fails, consider using docker instead.**
@@ -46,7 +48,7 @@ You have to extract the data before using it.
 
     fire-spread \
         input-stack input-dates output-dir basename \
-        nx ny nb init-searchdist track-searchdist \
+        init-searchdist track-searchdist \
         temp-dist density-dist min-size smooth-dist verbose
 
 
@@ -56,9 +58,6 @@ You have to extract the data before using it.
 |input-dates|list of input dates (see below)|
 |output-dir|output directory|
 |basename|basename, which is used for naming output|
-|nx|number of columns|
-|ny|number of lines|
-|nb|number of bands (= months)|
 |init-searchdist|see paper|
 |track-searchdist|see paper|
 |temp-dist|see paper|
@@ -79,7 +78,7 @@ You have to extract the data before using it.
         /data/timeseries.txt \
         /data/output \
         example_esacci \
-        1000 1000 240 10 10 5 12 2 3 v
+        10 10 5 12 2 3 v
 
 
 ## Input data
@@ -89,7 +88,7 @@ You have to extract the data before using it.
 * monthly stack of burned area data (DOY)
 * mosaic of complete area
 * reprojected to some projection which minimizes distortion of both area and angles (e.g. equidistant, see https://doi.org/10.1016/j.cageo.2014.07.005)
-* 16bit unsigned ENVI Standard
+* 16bit unsigned data format
 
 ### Hints
 

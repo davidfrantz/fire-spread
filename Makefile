@@ -2,8 +2,11 @@ GCC = gcc
 
 BINDIR=$(HOME)/bin
 
+GDAL=-I/usr/include/gdal -L/usr/lib -Wl,-rpath=/usr/lib
+LDGDAL=-lgdal
+
 CFLAGS=-fopenmp -O3 
-#CFLAGS=-g -Wall
+#CFLAGS=-g -Wall -fopenmp 
 
 .PHONY: all install clean
 
@@ -24,11 +27,14 @@ focalfuns: src/focalfuns.c
 queue: src/queue.c
 	$(GCC) $(CFLAGS) -c src/queue.c -o queue.o
 
+string: src/string.c
+	$(GCC) $(CFLAGS) -c src/string.c -o string.o
+
 vutils: src/vutils.c
 	$(GCC) $(CFLAGS) -c src/vutils.c -o vutils.o
 
-fire-spread: alloc angle date focalfuns queue vutils src/fire-spread.c
-	$(GCC) $(CFLAGS) -o fire-spread src/fire-spread.c *.o -lm
+fire-spread: alloc angle date focalfuns queue string vutils src/fire-spread.c
+	$(GCC) $(CFLAGS) $(GDAL) -o fire-spread src/fire-spread.c *.o -lm $(LDGDAL)
 
 install:
 	cp fire-spread $(BINDIR) ; chmod 755 $(BINDIR)/fire-spread

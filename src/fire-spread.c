@@ -6,12 +6,17 @@
 
 #include <omp.h>
 
+#include "cpl_conv.h"       // various convenience functions for CPL
+#include "gdal.h"           // public (C callable) GDAL entry points
+#include "cpl_string.h"
+
 #include "dtype.h"
 #include "alloc.h"
 #include "angle.h"
 #include "date.h"
 #include "queue.h"
 #include "focalfuns.h"
+#include "string.h"
 #include "vutils.h"
 
 /**
@@ -40,32 +45,6 @@ bool *VISITED = NULL;
 int nx, ny, nc, nb;
 
 #pragma omp threadprivate(OLD_BOOL,OLD_SEGM,NOW_BOOL,NOW_SEGM,FIRE_SEGM,VISITED)
-
-int write_envi_header(char *fname, int nx, int ny, int nb){
-FILE *fp = NULL;
-
-	if ((fp=fopen(fname, "w")) == NULL){
-		printf("\nOpen header file %s error!", fname); return FAILURE;}
-
-	fprintf(fp, "ENVI\n");
-	fprintf(fp, "description = { Fire tracking }\n"); 
-	fprintf(fp, "samples = %d\n", nx);
-	fprintf(fp, "lines = %d\n", ny);
-	fprintf(fp, "bands = %d\n", nb);
-	fprintf(fp, "header offset = 0\n");
-	fprintf(fp, "file type = ENVI Standard\n");
-	fprintf(fp, "data type = %d\n", 3);
-	fprintf(fp, "interleave = bsq\n");
-	fprintf(fp, "byte order = 0\n");
-	fprintf(fp, "data ignore value = 0\n");
-	fprintf(fp, 
-	"band names = { segmentation, ignition points (ip), burn date, ip density }\n");
-
-	fclose(fp);
-
-	return SUCCESS;
-
-}
 
 int xy_to_p(int x, int y){
 	return nx*y+x;
@@ -273,8 +252,8 @@ int p;
 
 int main( int argc, char *argv[] ){
 
-	if (argc != 15){ //argv[0] is program name
-		printf( "usage: %s input-stack input-dates output-dir basename nx ny nb\n", argv[0]);
+	if (argc != 12){ //argv[0] is program name
+		printf( "usage: %s input-stack input-dates output-dir basename\n", argv[0]);
 		printf("  init-searchdist track-searchdist temp-dist density-dist max-size smooth-dist verbose\n");
 		exit(0);
 	}
@@ -342,20 +321,38 @@ double *bm = NULL;
 int smoothsize, **dirmask;
 int s[16], w, minw;
 double u[16], minu, bstu;
+bool v;
+
+GDALDatasetH dataset = NULL;
+GDALRasterBandH band = NULL;
+double geotran[6];
+char proj[1024];
+GDALDatasetH output_file = NULL;
+GDALRasterBandH output_band = NULL;
+GDALDriverH output_driver = NULL;
+char **output_options = NULL;
+
+
+char finp[1024];
+char fdat[1024];
+char dout[1024];
+char bout[1024];
+int init__dist, track_dist, temp__dist, densi_dist;
+int max___size, smoothdist;
 
 // INPUT VARIABLES
-nx = atoi(argv[5]); ny = atoi(argv[6]); nb = atoi(argv[7]);
-nc = nx*ny;
-
-int init__dist = atoi(argv[8]);		// 10
-int track_dist = atoi(argv[9]);		// 15
-int temp__dist = atoi(argv[10]);		// 5
-int densi_dist = atoi(argv[11]);	// 10
-int max___size = atoi(argv[12]);	// 5
-int smoothdist = atoi(argv[13]);	// 3
-bool v;
-if        (strcmp(argv[14], "q") == 0){ v = false;
-} else if (strcmp(argv[14], "v") == 0){ v = true;
+copy_string(finp, 1024, argv[1]);
+copy_string(fdat, 1024, argv[2]);
+copy_string(dout, 1024, argv[3]);
+copy_string(bout, 1024, argv[4]);
+init__dist = atoi(argv[5]);	// 10
+track_dist = atoi(argv[6]);	// 15
+temp__dist = atoi(argv[7]);	// 5
+densi_dist = atoi(argv[8]);	// 10
+max___size = atoi(argv[9]);	// 5
+smoothdist = atoi(argv[10]);	// 3
+if        (strcmp(argv[11], "q") == 0){ v = false;
+} else if (strcmp(argv[11], "v") == 0){ v = true;
 } else { printf("error: last option must be q or v\n"); exit(1);}
 
 	if (init__dist < 2){ printf("init-searchdist must be > 1.\n"); exit(1);}
@@ -366,10 +363,8 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 	if (smoothdist < 0){ printf("smooth-dist must be >= 0.\n"); exit(1);}
 
 
-	alloc((void**)&yy,     nb, sizeof(int));
-	alloc((void**)&mm,     nb, sizeof(int));
-	alloc((void**)&ym,     nb, sizeof(int));
-	alloc((void**)&season, nb, sizeof(int));
+  	GDALAllRegister();
+
 
 	smoothsize = (smoothdist*2+1)*(smoothdist*2+1);
 
@@ -404,8 +399,25 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 	/** read data
 	+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++**/
 
-	if ((fp = fopen(argv[2], "r")) == NULL){
-		printf("Unable to open date file!\n"); exit(1); }
+	if ((dataset = GDALOpen(finp, GA_ReadOnly)) == NULL){
+        printf("unable to open %s\n", finp); exit(1);}
+
+	nx = GDALGetRasterXSize(dataset);
+	ny = GDALGetRasterYSize(dataset);
+	nc = nx*ny;
+
+	nb = GDALGetRasterCount(dataset);
+
+
+	alloc((void**)&yy,     nb, sizeof(int));
+	alloc((void**)&mm,     nb, sizeof(int));
+	alloc((void**)&ym,     nb, sizeof(int));
+	alloc((void**)&season, nb, sizeof(int));
+	alloc((void**)&bm,     12, sizeof(double));
+
+
+	if ((fp = fopen(fdat, "r")) == NULL){
+		printf("Unable to open date file (%s)!\n", fdat); exit(1); }
 
 	for (b=0; b<nb; b++){
 
@@ -423,21 +435,31 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 	fclose(fp);
 
 
-	alloc_2D((void***)&INP, nb, nc, sizeof(int2u));
-	alloc((void**)&bm, 12, sizeof(double));
 
-	if ((fp = fopen(argv[1], "rb")) == NULL){
-		printf("Unable to open input file!\n"); exit(1);}
+
+	
+	GDALGetGeoTransform(dataset, geotran);
+	copy_string(proj, 1024, GDALGetProjectionRef(dataset));
+	output_options = CSLSetNameValue(output_options, "TILED", "YES");
+	output_options = CSLSetNameValue(output_options, "COMPRESS", "LZW");
+	output_options = CSLSetNameValue(output_options, "PREDICTOR", "2");
+	output_options = CSLSetNameValue(output_options, "INTERLEAVE", "BAND");
+	output_options = CSLSetNameValue(output_options, "BIGTIFF", "YES");
+	
+
+	alloc_2D((void***)&INP, nb, nc, sizeof(int2u));
 
 	for (b=0; b<nb; b++){
-		if ((res = fread((void*)INP[b], sizeof(int2u), nc, fp)) != nc){
-			printf("reading error!\n"); exit(1);}
+		band = GDALGetRasterBand(dataset, b+1);
+		if (GDALRasterIO(band, GF_Read, 0, 0, nx, ny, INP[b], 
+			nx, ny, GDT_UInt16, 0, 0) == CE_Failure){
+			printf("could not read band #%d from %s.\n", b+1, finp); exit(1);}
 		for (p=0; p<nc; p++){
 			if (INP[b][p]>0 && INP[b][p] < 367) bm[mm[b]-1]++;
 		}
 		printf("%03d: %02d: %f\n", b, mm[b], bm[mm[b]-1]);
 	}
-	fclose(fp);
+	GDALClose(dataset);
 
 	for (b=0; b<12; b++) printf("%02d: %f\n", b+1, bm[b]);
 
@@ -469,7 +491,7 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 	omp_set_num_threads(20);
 	//
 
-	#pragma omp parallel default(none)  private(w,minw,minu,bstu,p0,ps,i0,i1,is,j0,j1,js,jj0,jj1,jjs,ii0,ii1,iis,m,b,p,i,j,ii,jj,inew,jnew,qi,qj,d,t,t0,t1,pold,pnew,ok,id,adj,bestid,oldid,subid,neighborid,nowid,nowsubid,k,s,u,FIRE_BOOL,FIRE_TIME,FIRE_SEED,FIRE_COPY,OBJ_ID,OBJ_SEED,OBJ_GAIN,OBJ_LIFETIME,OBJ_STARTTIME,ADJ_ID,ADJ_SUBID,ADJ_TIME,ADJ_TODO,SUB_SEGM,SUBOBJ_VALID,SUBOBJ_MINTIME,SUBOBJ_SEED,SUBOBJ_SEEDCALC,fp,ft,sumi,sumj,sumk,nowsum,nownum,nowmean,bestmean,fname,seed,pspiral,maxp,px,py,pdx,pdy,inkernel,fifo,FIRE_HIST,FIRE_DENSITY) firstprivate(nfire, addfire,nseg,nsub,nadj,nsub_invalid,msub_invalid,ntotal,iter,mintime,D,DD) shared(INP,season,nb,nx,ny,nc,argv,init__dist,track_dist,temp__dist,densi_dist,max___size,smoothdist,dirmask,v,doy0)
+	#pragma omp parallel default(none) private(w,minw,minu,bstu,p0,ps,i0,i1,is,j0,j1,js,jj0,jj1,jjs,ii0,ii1,iis,m,b,p,i,j,ii,jj,inew,jnew,qi,qj,d,t,t0,t1,pold,pnew,ok,id,adj,bestid,oldid,subid,neighborid,nowid,nowsubid,k,s,u,FIRE_BOOL,FIRE_TIME,FIRE_SEED,FIRE_COPY,OBJ_ID,OBJ_SEED,OBJ_GAIN,OBJ_LIFETIME,OBJ_STARTTIME,ADJ_ID,ADJ_SUBID,ADJ_TIME,ADJ_TODO,SUB_SEGM,SUBOBJ_VALID,SUBOBJ_MINTIME,SUBOBJ_SEED,SUBOBJ_SEEDCALC,fp,ft,sumi,sumj,sumk,nowsum,nownum,nowmean,bestmean,fname,seed,pspiral,maxp,px,py,pdx,pdy,inkernel,fifo,FIRE_HIST,FIRE_DENSITY,output_file,output_band,output_driver) firstprivate(nfire, addfire,nseg,nsub,nadj,nsub_invalid,msub_invalid,ntotal,iter,mintime,D,DD) shared(INP,season,nb,nx,ny,nc,argv,init__dist,track_dist,temp__dist,densi_dist,max___size,smoothdist,dirmask,v,doy0,proj,geotran,dout,bout,output_options)
 	{
 
 	#pragma omp for schedule(dynamic,1)
@@ -529,30 +551,6 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 		}
 
 
-		/** remove scatter [1]
-		+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++**/
-	/**	for (i=0, p=0; i<ny; i++){
-		for (j=0; j<nx; j++, p++){
-			if (FIRE_BOOL[p]){
-				for (ii=-1*smoothdist, m=0, k=0; ii<=smoothdist; ii++){
-				for (jj=-1*smoothdist; jj<=smoothdist; jj++){
-					if (i+ii < 0 || i+ii >= ny || 
-						j+jj < 0 || j+jj >= nx){ neighbor[k] = 0; continue;}
-					//neighbor[k] = FIRE_TIME[nx*(i+ii)+j+jj];
-					if (FIRE_TIME[nx*(i+ii)+j+jj] > 0){
-	//					neighbor[k] = FIRE_TIME[nx*(i+ii)+j+jj];
-						m += FIRE_TIME[nx*(i+ii)+j+jj];
-						k++;
-					}
-				}
-				}
-				//FIRE_TIME[p] = modal(neighbor, 9);
-	//			FIRE_TIME[p] = fquant(neighbor, k, 0.5);
-				FIRE_TIME[p] = m/(float)k;
-			}
-		}
-		}**/
-
 		for (i=0, p=0; i<ny; i++){
 		for (j=0; j<nx; j++, p++){
 			FIRE_COPY[p] = FIRE_TIME[p];
@@ -611,55 +609,10 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 		}
 		}
 
-
-
-	//sprintf(fname, "%s/fire-spread-smooth_%s_season-%02d.dat", argv[3], argv[4], S);
-	//fp = fopen(fname, "wb");
-	//fwrite((const void*) FIRE_TIME, sizeof(int), nc, fp);
-	//fclose(fp);
-    //
-	//sprintf(fname, "%s/fire-spread-smooth_%s_season-%02d.hdr", argv[3], argv[4], S);
-	//write_envi_header(fname, nx, ny, 1);
-
-
 		free((void*)FIRE_COPY);
 
 
-	//	free((void*)neighbor);
 
-		/** remove scatter [2]
-		+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++**/
-	/**	for (i=0, p=0; i<ny; i++){
-		for (j=0; j<nx; j++, p++){
-
-			if (FIRE_BOOL[p]){
-
-				scatter = true;
-
-				for (ii=-1, k=0; ii<=1; ii++){
-				for (jj=-1; jj<=1; jj++, k++){
-
-					if (ii == 0 && jj == 0){ neighbor[k] = 0; continue;}
-					if (i+ii < 0 || i+ii >= ny || 
-						j+jj < 0 || j+jj >= nx){ neighbor[k] = 0; continue;}
-
-					// if there is one neighbor pixel that burnt the same date as the central pixel, 
-					//   there is no scatter
-					if ((neighbor[k] = FIRE_TIME[nx*(i+ii)+j+jj]) == FIRE_TIME[p]){
-						scatter = false;
-						ii = jj = 10;
-					}
-
-				}
-				}
-
-				if (scatter) FIRE_TIME[p] = modal(neighbor, 9);
-
-			}
-
-		}
-		}
-	**/
 		free((void*)FIRE_BOOL);
 
 
@@ -896,17 +849,6 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 		free((void*)NOW_SEGM);
 		free((void*)FIRE_SEGM);
 
-//sprintf(fname, "%s/fire-spread_%s_season-%02d.dat", argv[3], argv[4], S);
-//fp = fopen(fname, "wb");
-//fwrite((const void*) OLD_SEGM,  sizeof(int), nc, fp);
-//fwrite((const void*) FIRE_SEED, sizeof(int), nc, fp);
-//fwrite((const void*) FIRE_TIME, sizeof(int), nc, fp);
-////fwrite((const void*) FIRE_DENSITY, sizeof(int), nc, fp);
-//fclose(fp);
-//
-//sprintf(fname, "%s/fire-spread_%s_season-%02d.hdr", argv[3], argv[4], S);
-//write_envi_header(fname, nx, ny, 3);
-//continue;
 
 		// *** MOVE FIRE SEED CENTROIDS TO BURNT PIXELS ******************
 		// ***************************************************************
@@ -1452,16 +1394,54 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 		}
 		fclose(ft);
 
-		sprintf(fname, "%s/fire-spread_%s_season-%02d.dat", argv[3], argv[4], S);
-		fp = fopen(fname, "wb");
-		fwrite((const void*) OLD_SEGM,  sizeof(int), nc, fp);
-		fwrite((const void*) FIRE_SEED, sizeof(int), nc, fp);
-		fwrite((const void*) FIRE_TIME, sizeof(int), nc, fp);
-		fwrite((const void*) FIRE_DENSITY, sizeof(int), nc, fp);
-		fclose(fp);
 
-		sprintf(fname, "%s/fire-spread_%s_season-%02d.hdr", argv[3], argv[4], S);
-		write_envi_header(fname, nx, ny, 4);
+		if ((output_driver = GDALGetDriverByName("GTiff")) == NULL){
+			printf("%s driver not found\n", "GTiff"); exit(1);}
+
+		sprintf(fname, "%s/fire-spread_%s_season-%02d.tif", dout, bout, S);
+		if ((output_file = GDALCreate(output_driver, fname, nx, ny, 4, GDT_Int32, output_options)) == NULL){
+			printf("Error creating memory file %s. ", fname); exit(1);}
+
+		output_band = GDALGetRasterBand(output_file, 1);
+		if (GDALRasterIO(output_band, GF_Write, 0, 0, 
+					nx, ny, OLD_SEGM, 
+					nx, ny, GDT_Int32, 0, 0) == CE_Failure){
+					printf("Unable to write %s. ", fname); exit(1);}
+		GDALSetDescription(output_band, "fire segmentation");
+		GDALSetRasterNoDataValue(output_band, 0);
+
+		output_band = GDALGetRasterBand(output_file, 2);
+		if (GDALRasterIO(output_band, GF_Write, 0, 0, 
+					nx, ny, FIRE_SEED, 
+					nx, ny, GDT_Int32, 0, 0) == CE_Failure){
+					printf("Unable to write %s. ", fname); exit(1);}
+		GDALSetDescription(output_band, "fire seeds");
+		GDALSetRasterNoDataValue(output_band, 0);
+
+		output_band = GDALGetRasterBand(output_file, 3);
+		if (GDALRasterIO(output_band, GF_Write, 0, 0, 
+					nx, ny, FIRE_TIME, 
+					nx, ny, GDT_Int32, 0, 0) == CE_Failure){
+					printf("Unable to write %s. ", fname); exit(1);}
+		GDALSetDescription(output_band, "fire timing");
+		GDALSetRasterNoDataValue(output_band, 0);
+
+		output_band = GDALGetRasterBand(output_file, 4);
+		if (GDALRasterIO(output_band, GF_Write, 0, 0, 
+					nx, ny, FIRE_DENSITY, 
+					nx, ny, GDT_Int32, 0, 0) == CE_Failure){
+					printf("Unable to write %s. ", fname); exit(1);}
+		GDALSetDescription(output_band, "fire density");
+		GDALSetRasterNoDataValue(output_band, 0);
+
+		#pragma omp critical
+		{
+			GDALSetGeoTransform(output_file, geotran);
+			GDALSetProjection(output_file,   proj);
+		}
+		
+		GDALClose(output_file);
+
 
 		free((void*)OLD_BOOL);
 		free((void*)OLD_SEGM);
@@ -1488,6 +1468,8 @@ if        (strcmp(argv[14], "q") == 0){ v = false;
 	free((void*)bm);
 	free((void*)ym);
 	free((void*)season);
+
+	CSLDestroy(output_options);
 
 	return SUCCESS;
 
