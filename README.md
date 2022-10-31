@@ -1,6 +1,9 @@
 # fire-spread
 
-v. 1.1
+**Version 1.1**
+
+![fire-spread Logo](/images/fire-spread.png)
+
 
 ## Background
 
