@@ -252,9 +252,11 @@ int p;
 
 int main( int argc, char *argv[] ){
 
-	if (argc != 12){ //argv[0] is program name
+	if (argc != 13){ //argv[0] is program name
 		printf( "usage: %s input-stack input-dates output-dir basename\n", argv[0]);
-		printf("  init-searchdist track-searchdist temp-dist density-dist max-size smooth-dist verbose\n");
+		printf("                init-searchdist track-searchdist\n");
+		printf("                temp-dist density-dist max-size smooth-dist\n");
+		printf("                ncpu verbose\n");
 		exit(0);
 	}
 
@@ -339,21 +341,23 @@ char dout[1024];
 char bout[1024];
 int init__dist, track_dist, temp__dist, densi_dist;
 int max___size, smoothdist;
+int ncpu;
 
-// INPUT VARIABLES
-copy_string(finp, 1024, argv[1]);
-copy_string(fdat, 1024, argv[2]);
-copy_string(dout, 1024, argv[3]);
-copy_string(bout, 1024, argv[4]);
-init__dist = atoi(argv[5]);	// 10
-track_dist = atoi(argv[6]);	// 15
-temp__dist = atoi(argv[7]);	// 5
-densi_dist = atoi(argv[8]);	// 10
-max___size = atoi(argv[9]);	// 5
-smoothdist = atoi(argv[10]);	// 3
-if        (strcmp(argv[11], "q") == 0){ v = false;
-} else if (strcmp(argv[11], "v") == 0){ v = true;
-} else { printf("error: last option must be q or v\n"); exit(1);}
+	// INPUT VARIABLES
+	copy_string(finp, 1024, argv[1]);
+	copy_string(fdat, 1024, argv[2]);
+	copy_string(dout, 1024, argv[3]);
+	copy_string(bout, 1024, argv[4]);
+	init__dist = atoi(argv[5]);	 // 10
+	track_dist = atoi(argv[6]);	 // 15
+	temp__dist = atoi(argv[7]);	 // 5
+	densi_dist = atoi(argv[8]);	 // 10
+	max___size = atoi(argv[9]);	 // 5
+	smoothdist = atoi(argv[10]); // 3
+	ncpu       = atoi(argv[11]); // ?
+	if        (strcmp(argv[12], "q") == 0){ v = false;
+	} else if (strcmp(argv[12], "v") == 0){ v = true;
+	} else { printf("error: last option must be q or v\n"); exit(1);}
 
 	if (init__dist < 2){ printf("init-searchdist must be > 1.\n"); exit(1);}
 	if (track_dist < 2){ printf("track-searchdist must be > 1.\n"); exit(1);}
@@ -488,7 +492,7 @@ if        (strcmp(argv[11], "q") == 0){ v = false;
 	for (b=0; b<nb; b++) printf("%04d %02d %02d\n", yy[b], mm[b], season[b]);
 	printf("processing of %02d seasons.\n", season[nb-1]);
 
-	omp_set_num_threads(20);
+	omp_set_num_threads(ncpu);
 	//
 
 	#pragma omp parallel default(none) private(w,minw,minu,bstu,p0,ps,i0,i1,is,j0,j1,js,jj0,jj1,jjs,ii0,ii1,iis,m,b,p,i,j,ii,jj,inew,jnew,qi,qj,d,t,t0,t1,pold,pnew,ok,id,adj,bestid,oldid,subid,neighborid,nowid,nowsubid,k,s,u,FIRE_BOOL,FIRE_TIME,FIRE_SEED,FIRE_COPY,OBJ_ID,OBJ_SEED,OBJ_GAIN,OBJ_LIFETIME,OBJ_STARTTIME,ADJ_ID,ADJ_SUBID,ADJ_TIME,ADJ_TODO,SUB_SEGM,SUBOBJ_VALID,SUBOBJ_MINTIME,SUBOBJ_SEED,SUBOBJ_SEEDCALC,fp,ft,sumi,sumj,sumk,nowsum,nownum,nowmean,bestmean,fname,seed,pspiral,maxp,px,py,pdx,pdy,inkernel,fifo,FIRE_HIST,FIRE_DENSITY,output_file,output_band,output_driver) firstprivate(nfire, addfire,nseg,nsub,nadj,nsub_invalid,msub_invalid,ntotal,iter,mintime,D,DD) shared(INP,season,nb,nx,ny,nc,argv,init__dist,track_dist,temp__dist,densi_dist,max___size,smoothdist,dirmask,v,doy0,proj,geotran,dout,bout,output_options)

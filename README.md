@@ -52,7 +52,8 @@ You have to extract the data before using it.
     fire-spread \
         input-stack input-dates output-dir basename \
         init-searchdist track-searchdist \
-        temp-dist density-dist min-size smooth-dist verbose
+        temp-dist density-dist min-size smooth-dist \
+        ncpu verbose
 
 
 |Argument| Short Description|
@@ -67,6 +68,7 @@ You have to extract the data before using it.
 |density-dist|see paper|
 |min-size|see paper|
 |smooth-dist|see paper|
+|ncpu|number of CPUs|
 |verbose|print detailed information (v) or be quiet (q)|
 
 **Sample call**:
@@ -81,7 +83,7 @@ You have to extract the data before using it.
         /data/timeseries.txt \
         /data/output \
         example_esacci \
-        10 10 5 12 2 3 v
+        10 10 5 12 2 3 10 v
 
 
 ## Input data
