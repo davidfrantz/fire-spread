@@ -14,6 +14,7 @@
 #include "alloc.h"
 #include "angle.h"
 #include "date.h"
+#include "ogr.h"
 #include "queue.h"
 #include "focalfuns.h"
 #include "string.h"
@@ -282,6 +283,7 @@ queue_t *fifo;
 FILE *fp = NULL, *ft = NULL;
 size_t res;
 char fname[1024];
+char fname_vector[1024];
 
 int seed, pspiral, maxp, px, py, pdx, pdy;
 bool inkernel;
@@ -368,6 +370,8 @@ int ncpu;
 
 
   	GDALAllRegister();
+    OGRRegisterAll();
+
 
 
 	smoothsize = (smoothdist*2+1)*(smoothdist*2+1);
@@ -495,7 +499,7 @@ int ncpu;
 	omp_set_num_threads(ncpu);
 	//
 
-	#pragma omp parallel default(none) private(w,minw,minu,bstu,p0,ps,i0,i1,is,j0,j1,js,jj0,jj1,jjs,ii0,ii1,iis,m,b,p,i,j,ii,jj,inew,jnew,qi,qj,d,t,t0,t1,pold,pnew,ok,id,adj,bestid,oldid,subid,neighborid,nowid,nowsubid,k,s,u,FIRE_BOOL,FIRE_TIME,FIRE_SEED,FIRE_COPY,OBJ_ID,OBJ_SEED,OBJ_GAIN,OBJ_LIFETIME,OBJ_STARTTIME,ADJ_ID,ADJ_SUBID,ADJ_TIME,ADJ_TODO,SUB_SEGM,SUBOBJ_VALID,SUBOBJ_MINTIME,SUBOBJ_SEED,SUBOBJ_SEEDCALC,fp,ft,sumi,sumj,sumk,nowsum,nownum,nowmean,bestmean,fname,seed,pspiral,maxp,px,py,pdx,pdy,inkernel,fifo,FIRE_HIST,FIRE_DENSITY,output_file,output_band,output_driver) firstprivate(nfire, addfire,nseg,nsub,nadj,nsub_invalid,msub_invalid,ntotal,iter,mintime,D,DD) shared(INP,season,nb,nx,ny,nc,argv,init__dist,track_dist,temp__dist,densi_dist,max___size,smoothdist,dirmask,v,doy0,proj,geotran,dout,bout,output_options)
+	#pragma omp parallel default(none) private(w,minw,minu,bstu,p0,ps,i0,i1,is,j0,j1,js,jj0,jj1,jjs,ii0,ii1,iis,m,b,p,i,j,ii,jj,inew,jnew,qi,qj,d,t,t0,t1,pold,pnew,ok,id,adj,bestid,oldid,subid,neighborid,nowid,nowsubid,k,s,u,FIRE_BOOL,FIRE_TIME,FIRE_SEED,FIRE_COPY,OBJ_ID,OBJ_SEED,OBJ_GAIN,OBJ_LIFETIME,OBJ_STARTTIME,ADJ_ID,ADJ_SUBID,ADJ_TIME,ADJ_TODO,SUB_SEGM,SUBOBJ_VALID,SUBOBJ_MINTIME,SUBOBJ_SEED,SUBOBJ_SEEDCALC,fp,ft,sumi,sumj,sumk,nowsum,nownum,nowmean,bestmean,fname,fname_vector,seed,pspiral,maxp,px,py,pdx,pdy,inkernel,fifo,FIRE_HIST,FIRE_DENSITY,output_file,output_band,output_driver) firstprivate(nfire, addfire,nseg,nsub,nadj,nsub_invalid,msub_invalid,ntotal,iter,mintime,D,DD) shared(INP,season,nb,nx,ny,nc,init__dist,track_dist,temp__dist,densi_dist,max___size,smoothdist,dirmask,v,doy0,proj,geotran,dout,bout,output_options)
 	{
 
 	#pragma omp for schedule(dynamic,1)
@@ -675,7 +679,7 @@ int ncpu;
 				NOW_SEGM[p] = 0;
 			}
 
-	//D = 0;
+
 			if (D==0){
 				i0 = 0; i1 = ny-1; is = 1;
 				j0 = 0; j1 = nx-1; js = 1;
@@ -693,17 +697,13 @@ int ncpu;
 				j0 = 0; j1 = nx-1; js = 1;
 				D=0;
 			}
-	//		D = D * -1;
-	//		printf("i: %d %d %d j: %d %d %d p: %d %d\n",
-	//			i0, i1, is, j0, j1, js, p0, ps);
+
 
 			for (i=i0; i!=i1; i+=is){
 			for (j=j0; j!=j1; j+=js){
 
 			p = nx*i+j; 
-	//printf("%d %d %d\n", i, j, p);
-	//		for (i=0, p=0; i<ny; i++){
-	//		for (j=0; j<nx; j++, p++){
+
 
 				// if old and active
 				if (OLD_BOOL[p] && abs((t-FIRE_TIME[p])) <= temp__dist){
@@ -739,7 +739,7 @@ int ncpu;
 			while (dequeue(fifo, &qi, &qj)){
 
 				pold = nx*qi+qj;
-	//DD = 0;
+
 				if (DD==0){
 					ii0 = -1*track_dist; ii1 = track_dist; iis = 1;
 					jj0 = -1*track_dist; jj1 = track_dist; jjs = 1;
@@ -760,9 +760,6 @@ int ncpu;
 
 				for (ii=ii0; ii!=ii1; ii+=iis){
 				for (jj=jj0; jj!=jj1; jj+=jjs){
-
-	//			for (ii=-1*track_dist; ii<=track_dist; ii++){
-	//			for (jj=-1*track_dist; jj<=track_dist; jj++){
 
 					if (ii==0 && jj==0) continue;
 					inew = qi+ii; jnew = qj+jj;
@@ -1043,8 +1040,6 @@ int ncpu;
 			for (j=j0; j!=j1; j+=js){
 
 				p = nx*i+j; 
-		//	for (i=0, p=0; i<ny; i++){
-		//	for (j=0; j<nx; j++, p++){
 
 				if (!VISITED[p] && OLD_BOOL[p]){
 
@@ -1377,9 +1372,16 @@ int ncpu;
 		for (id=0; id<nfire; id++) if (FIRE_HIST[id] > 0) ntotal++;
 		if (v) printf("total patches new: %d\n", ntotal);
 
+
+		// *** WRITE BASIC SHAPEFILE  ************************************
+		// ***************************************************************
+   	sprintf(fname_vector, "%s/fire-spread_%s_season-%02d.gpkg", dout, bout, S);
+    ogr_write(fname_vector, geotran, proj, S, nfire, OBJ_ID, OBJ_SEED, FIRE_HIST, OBJ_STARTTIME, OBJ_LIFETIME);
+
+
 		// *** WRITE THE OUTPUT TABLE ************************************
 		// ***************************************************************
-		sprintf(fname, "%s/fire-spread_%s_season-%02d.txt", argv[3], argv[4], S);
+		sprintf(fname, "%s/fire-spread_%s_season-%02d.txt", dout, bout, S);
 		ft = fopen(fname, "w");
 		fprintf(ft, "ID SIZE IPX IPY IPT LIFE");
 		for (t=0; t<366; t++) fprintf(ft, " SPREAD_T%03d", t+1);
