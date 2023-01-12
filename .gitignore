@@ -1,3 +1,4 @@
 *.o
 settings.json
 .vscode/*
+fire-spread

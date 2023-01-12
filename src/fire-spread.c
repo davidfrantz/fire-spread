@@ -11,10 +11,11 @@
 #include "cpl_string.h"
 
 #include "dtype.h"
+#include "dtype.h"
 #include "alloc.h"
 #include "angle.h"
 #include "date.h"
-#include "ogr.h"
+#include "write.h"
 #include "queue.h"
 #include "focalfuns.h"
 #include "string.h"
@@ -43,13 +44,104 @@ int  *FIRE_SEGM = NULL;
 
 bool *VISITED = NULL;
 
-int nx, ny, nc, nb;
+int nx, ny, nc;
+
+
 
 #pragma omp threadprivate(OLD_BOOL,OLD_SEGM,NOW_BOOL,NOW_SEGM,FIRE_SEGM,VISITED)
 
 int xy_to_p(int x, int y){
 	return nx*y+x;
 }
+
+void month_minimum(int2u **INP, int nc, bands_t *bands){
+off_t count_per_month[13], min_count;
+int p, b, m;
+
+  for (m=0; m<13; m++) count_per_month[m] = 0;
+
+	for (b=0; b<bands->n; b++){
+
+		for (p=0; p<nc; p++){
+			if (INP[b][p] > 0 && INP[b][p] < 367){
+        count_per_month[bands->months[b]]++;
+      } 
+		}
+
+	}
+
+  min_count = count_per_month[1];
+  bands->min_month = 1;
+  for (m=2; m<13; m++){
+    if (count_per_month[m] < min_count){
+      min_count = count_per_month[m];
+      bands->min_month = m;
+    }
+  }
+
+	bands->min_doy = md2doy(bands->min_month, 1);
+
+
+	for (m=1; m<13; m++) printf("burned pixels in month %02d: %lu\n", m, count_per_month[m]);
+	printf("Burning minimum detected in month %02d, DOY %d\n", bands->min_month, bands->min_doy);
+
+  return;
+}
+
+
+void sort_into_seasons(bands_t *bands){
+int b;
+int season = -1;
+bool error = false;
+
+
+	// make sure that there are no gaps
+	for (b=1; b<bands->n; b++){
+		
+		if ((bands->years[b]  - bands->years[b-1])  == 0 &&
+				(bands->months[b] - bands->months[b-1]) != 1){
+					error = true;
+								printf("1.\n");
+		} else if ((bands->years[b]  - bands->years[b-1])  ==   1 &&
+				       (bands->months[b] - bands->months[b-1]) != -11){
+					error = true;
+								printf("2.\n");
+		} else if ((bands->years[b] - bands->years[b-1]) != 0 &&
+				       (bands->years[b] - bands->years[b-1]) != 1){
+					error = true;
+					printf("3.\n");
+		}
+
+	}
+
+	if (error){ 
+		printf("bands/months are not gap-free, fix input data..\n");
+		exit(1);
+	}
+
+
+	// label seasons
+	for (b=0; b<bands->n; b++){
+
+		if (bands->months[b] == bands->min_month) season++;
+
+		bands->seasons[b] = season;
+
+	}
+	bands->nseasons = season;
+
+
+  printf("%04d %02d %02d\n", bands->years[0], bands->months[0], bands->seasons[0]);
+	for (b=1; b<bands->n; b++){
+    if (bands->seasons[b] > bands->seasons[b-1]){
+			printf("%04d %02d %02d\n", bands->years[b], bands->months[b], bands->seasons[b]);
+		}
+  } 
+	printf("processing of %02d seasons.\n", bands->nseasons);
+
+  return;
+}
+
 
 bool xyfocal_to_p(int x, int y, int xx, int yy, int *xnew, int *ynew, int *pnew){
 	if (xx == 0 && yy == 0) return false;
@@ -284,6 +376,8 @@ FILE *fp = NULL, *ft = NULL;
 size_t res;
 char fname[1024];
 char fname_vector[1024];
+char fname_table[1024];
+char fname_table_ext[1024];
 
 int seed, pspiral, maxp, px, py, pdx, pdy;
 bool inkernel;
@@ -315,12 +409,11 @@ int    **SUBOBJ_SEED     = NULL;
 double **SUBOBJ_SEEDCALC = NULL;
 
 char buffer[1024] = "\0", cy[5], cm[3];
-int *yy = NULL, YY;
-int *mm = NULL, m0;
-int *ym = NULL, ym0;
-int *season = NULL, S;
-int doy0;
-double *bm = NULL;
+int S;
+
+bands_t bands;
+
+
 
 int smoothsize, **dirmask;
 int s[16], w, minw;
@@ -414,35 +507,28 @@ int ncpu;
 	ny = GDALGetRasterYSize(dataset);
 	nc = nx*ny;
 
-	nb = GDALGetRasterCount(dataset);
-
-
-	alloc((void**)&yy,     nb, sizeof(int));
-	alloc((void**)&mm,     nb, sizeof(int));
-	alloc((void**)&ym,     nb, sizeof(int));
-	alloc((void**)&season, nb, sizeof(int));
-	alloc((void**)&bm,     12, sizeof(double));
+	bands.n = GDALGetRasterCount(dataset);
+	alloc((void**)&bands.years,   bands.n, sizeof(int));
+	alloc((void**)&bands.months,  bands.n, sizeof(int));
+	alloc((void**)&bands.seasons, bands.n, sizeof(int));
 
 
 	if ((fp = fopen(fdat, "r")) == NULL){
 		printf("Unable to open date file (%s)!\n", fdat); exit(1); }
 
-	for (b=0; b<nb; b++){
+	for (b=0; b<bands.n; b++){
 
 		if (fgets(buffer, 1024, fp) == NULL){
-			printf("Unable to read from date file, line %d!\n", nb+1); exit(1); }
+			printf("Unable to read from date file, line %d!\n", bands.n); exit(1); }
 
 		strncpy(cy, buffer, 4);
 		strncpy(cm, buffer+4, 2);
-		cy[4] = '\0'; yy[b] = atoi(cy);
-		cm[2] = '\0'; mm[b] = atoi(cm);
-		ym[b] = yy[b]*12 + mm[b];
+		cy[4] = '\0'; bands.years[b]  = atoi(cy);
+		cm[2] = '\0'; bands.months[b] = atoi(cm);
 
 	}
 
 	fclose(fp);
-
-
 
 
 	
@@ -455,55 +541,30 @@ int ncpu;
 	output_options = CSLSetNameValue(output_options, "BIGTIFF", "YES");
 	
 
-	alloc_2D((void***)&INP, nb, nc, sizeof(int2u));
+	alloc_2D((void***)&INP, bands.n, nc, sizeof(int2u));
 
-	for (b=0; b<nb; b++){
+	for (b=0; b<bands.n; b++){
 		band = GDALGetRasterBand(dataset, b+1);
 		if (GDALRasterIO(band, GF_Read, 0, 0, nx, ny, INP[b], 
 			nx, ny, GDT_UInt16, 0, 0) == CE_Failure){
 			printf("could not read band #%d from %s.\n", b+1, finp); exit(1);}
-		for (p=0; p<nc; p++){
-			if (INP[b][p]>0 && INP[b][p] < 367) bm[mm[b]-1]++;
-		}
-		printf("%03d: %02d: %f\n", b, mm[b], bm[mm[b]-1]);
 	}
 	GDALClose(dataset);
 
-	for (b=0; b<12; b++) printf("%02d: %f\n", b+1, bm[b]);
-
-	m0 = 1;
-	for (b=1; b<12; b++){
-		if (bm[b]<bm[m0]) m0 = b+1;
-	}
-	doy0 = md2doy(m0, 1);
-	printf("burning minimum detected in month %02d\n", m0);
-	printf("DOYs are reported relative to DOY %03d\n", doy0);
 
 
-	ym0 = yy[0]*12 + m0;
 
-	for (b=0, k=0; b<nb; b++){
-
-		if (ym[b] < ym0){
-			season[b] = k;
-		} else {
-			k++;
-			season[b] = k;
-			ym0 += 12;
-		}
-	}
-
-	for (b=0; b<nb; b++) printf("%04d %02d %02d\n", yy[b], mm[b], season[b]);
-	printf("processing of %02d seasons.\n", season[nb-1]);
+  month_minimum(INP, nc, &bands);
+  sort_into_seasons(&bands);
 
 	omp_set_num_threads(ncpu);
-	//
 
-	#pragma omp parallel default(none) private(w,minw,minu,bstu,p0,ps,i0,i1,is,j0,j1,js,jj0,jj1,jjs,ii0,ii1,iis,m,b,p,i,j,ii,jj,inew,jnew,qi,qj,d,t,t0,t1,pold,pnew,ok,id,adj,bestid,oldid,subid,neighborid,nowid,nowsubid,k,s,u,FIRE_BOOL,FIRE_TIME,FIRE_SEED,FIRE_COPY,OBJ_ID,OBJ_SEED,OBJ_GAIN,OBJ_LIFETIME,OBJ_STARTTIME,ADJ_ID,ADJ_SUBID,ADJ_TIME,ADJ_TODO,SUB_SEGM,SUBOBJ_VALID,SUBOBJ_MINTIME,SUBOBJ_SEED,SUBOBJ_SEEDCALC,fp,ft,sumi,sumj,sumk,nowsum,nownum,nowmean,bestmean,fname,fname_vector,seed,pspiral,maxp,px,py,pdx,pdy,inkernel,fifo,FIRE_HIST,FIRE_DENSITY,output_file,output_band,output_driver) firstprivate(nfire, addfire,nseg,nsub,nadj,nsub_invalid,msub_invalid,ntotal,iter,mintime,D,DD) shared(INP,season,nb,nx,ny,nc,init__dist,track_dist,temp__dist,densi_dist,max___size,smoothdist,dirmask,v,doy0,proj,geotran,dout,bout,output_options)
+
+	#pragma omp parallel default(none) private(w,minw,minu,bstu,p0,ps,i0,i1,is,j0,j1,js,jj0,jj1,jjs,ii0,ii1,iis,m,b,p,i,j,ii,jj,inew,jnew,qi,qj,d,t,t0,t1,pold,pnew,ok,id,adj,bestid,oldid,subid,neighborid,nowid,nowsubid,k,s,u,FIRE_BOOL,FIRE_TIME,FIRE_SEED,FIRE_COPY,OBJ_ID,OBJ_SEED,OBJ_GAIN,OBJ_LIFETIME,OBJ_STARTTIME,ADJ_ID,ADJ_SUBID,ADJ_TIME,ADJ_TODO,SUB_SEGM,SUBOBJ_VALID,SUBOBJ_MINTIME,SUBOBJ_SEED,SUBOBJ_SEEDCALC,fp,ft,sumi,sumj,sumk,nowsum,nownum,nowmean,bestmean,fname,fname_vector,fname_table,fname_table_ext,seed,pspiral,maxp,px,py,pdx,pdy,inkernel,fifo,FIRE_HIST,FIRE_DENSITY,output_file,output_band,output_driver) firstprivate(nfire, addfire,nseg,nsub,nadj,nsub_invalid,msub_invalid,ntotal,iter,mintime,D,DD) shared(INP,bands,nx,ny,nc,init__dist,track_dist,temp__dist,densi_dist,max___size,smoothdist,dirmask,v,proj,geotran,dout,bout,output_options)
 	{
 
 	#pragma omp for schedule(dynamic,1)
-	for (S=season[0]; S<=season[nb-1]; S++){
+	for (S=bands.seasons[0]; S<=bands.seasons[bands.n-1]; S++){
 
 		alloc((void**)&OLD_BOOL, nc, sizeof(bool));
 		alloc((void**)&OLD_SEGM, nc, sizeof(int));
@@ -523,13 +584,12 @@ int ncpu;
 		alloc_2D((void***)&OBJ_SEED, 2, MAX_OBJECTS, sizeof(int));
 		alloc_3D((void****)&OBJ_GAIN, 366, 9, MAX_OBJECTS, sizeof(int));
 
-		for (b=0; b<nb; b++){
-			if (season[b] != S) continue;
-			printf("season %d band %d\n", S, b);
+		for (b=0; b<bands.n; b++){
+			if (bands.seasons[b] != S) continue;
 			for (p=0; p<nc; p++){
 				if (INP[b][p] > 0 && INP[b][p] < 367){
 					if (FIRE_TIME[p] == 0){
-						FIRE_TIME[p] = (int)INP[b][p] - doy0 + 1;
+						FIRE_TIME[p] = (int)INP[b][p] - bands.min_doy + 1;
 						if (FIRE_TIME[p] < 1) FIRE_TIME[p]+=366;
 					}
 					FIRE_BOOL[p] = true;
@@ -1376,29 +1436,17 @@ int ncpu;
 		// *** WRITE BASIC SHAPEFILE  ************************************
 		// ***************************************************************
    	sprintf(fname_vector, "%s/fire-spread_%s_season-%02d.gpkg", dout, bout, S);
-    ogr_write(fname_vector, geotran, proj, S, nfire, OBJ_ID, OBJ_SEED, FIRE_HIST, OBJ_STARTTIME, OBJ_LIFETIME);
+    vector_write(fname_vector, geotran, proj, S, &bands, nfire, OBJ_ID, OBJ_SEED, FIRE_HIST, OBJ_STARTTIME, OBJ_LIFETIME);
 
-
-		// *** WRITE THE OUTPUT TABLE ************************************
+		// *** WRITE BASIC TABLE  ****************************************
 		// ***************************************************************
-		sprintf(fname, "%s/fire-spread_%s_season-%02d.txt", dout, bout, S);
-		ft = fopen(fname, "w");
-		fprintf(ft, "ID SIZE IPX IPY IPT LIFE");
-		for (t=0; t<366; t++) fprintf(ft, " SPREAD_T%03d", t+1);
-		fprintf(ft, "\n");
-		for (id=0; id<nfire; id++){
-			if (FIRE_HIST[id] == 0) continue;
-			fprintf(ft, "%07d %07d %06d %06d %03d %03d", 
-				OBJ_ID[id], FIRE_HIST[id], 
-				OBJ_SEED[0][id]+1, OBJ_SEED[1][id]+1, 
-				OBJ_STARTTIME[id], OBJ_LIFETIME[id]);
-			for (t=0; t<366; t++){
-				fprintf(ft, " %d", OBJ_GAIN[t][0][id]);
-				for (d=1; d<9; d++) fprintf(ft, "/%d", OBJ_GAIN[t][d][id]);
-			}
-			fprintf(ft, "\n");
-		}
-		fclose(ft);
+   	sprintf(fname_table, "%s/fire-spread_%s_season-%02d.txt", dout, bout, S);
+    basic_write(fname_table, geotran, proj, S, &bands, nfire, OBJ_ID, OBJ_SEED, FIRE_HIST, OBJ_STARTTIME, OBJ_LIFETIME);
+
+		// *** WRITE EXTENDED TABLE **************************************
+		// ***************************************************************
+		sprintf(fname_table_ext, "%s/fire-spread_%s_season-%02d_extended.txt", dout, bout, S);
+    extended_write(fname_table_ext, geotran, proj, S, &bands, nfire, OBJ_ID, FIRE_HIST, OBJ_GAIN);
 
 
 		if ((output_driver = GDALGetDriverByName("GTiff")) == NULL){
@@ -1468,12 +1516,7 @@ int ncpu;
 	}
 
 	free_2D((void**)dirmask, 16);
-	free_2D((void**)INP, nb);
-	free((void*)yy);
-	free((void*)mm);
-	free((void*)bm);
-	free((void*)ym);
-	free((void*)season);
+	free_2D((void**)INP, bands.n);
 
 	CSLDestroy(output_options);
 

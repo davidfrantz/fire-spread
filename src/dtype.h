@@ -12,6 +12,18 @@ typedef signed short int int2s;
 typedef unsigned char int1u;
 typedef signed char int1s;
 
+
+typedef struct {
+  int n; // number of bands
+  int *years; 
+  int *months;
+  int *seasons;
+  int min_month;
+  int min_doy;
+	int nseasons;
+} bands_t;
+
+
 #ifdef __cplusplus
 }
 #endif
