@@ -1440,12 +1440,12 @@ int ncpu;
 
 		// *** WRITE BASIC TABLE  ****************************************
 		// ***************************************************************
-   	sprintf(fname_table, "%s/fire-spread_%s_season-%02d.txt", dout, bout, S);
+   	sprintf(fname_table, "%s/fire-spread_%s_season-%02d.csv", dout, bout, S);
     basic_write(fname_table, geotran, proj, S, &bands, nfire, OBJ_ID, OBJ_SEED, FIRE_HIST, OBJ_STARTTIME, OBJ_LIFETIME);
 
 		// *** WRITE EXTENDED TABLE **************************************
 		// ***************************************************************
-		sprintf(fname_table_ext, "%s/fire-spread_%s_season-%02d_extended.txt", dout, bout, S);
+		sprintf(fname_table_ext, "%s/fire-spread_%s_season-%02d_extended.csv", dout, bout, S);
     extended_write(fname_table_ext, geotran, proj, S, &bands, nfire, OBJ_ID, FIRE_HIST, OBJ_GAIN);
 
 
