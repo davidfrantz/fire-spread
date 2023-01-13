@@ -7,7 +7,7 @@ GDAL=-I/usr/include/gdal -L/usr/lib -Wl,-rpath=/usr/lib
 LDGDAL=-lgdal
 
 CFLAGS=-fopenmp -O3 
-CFLAGS=-g -Wall -fopenmp 
+#CFLAGS=-g -Wall -fopenmp 
 
 .PHONY: all install clean
 
