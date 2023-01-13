@@ -91,6 +91,7 @@ char datestring[1024];
     OGR_F_SetFieldString(feature, OGR_F_GetFieldIndex(feature, "date"), datestring);
     OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "area"), FIRE_HIST[id]);
     OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "lifetime"), OBJ_LIFETIME[id]);
+    OGR_F_SetFieldString(feature, OGR_F_GetFieldIndex(feature, "main_direction"), "TBD");
 
     map_x = geotran[0] + OBJ_SEED[0][id]*geotran[1];
     map_y = geotran[3] - OBJ_SEED[1][id]*geotran[5];
