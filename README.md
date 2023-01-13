@@ -1,6 +1,6 @@
 # fire-spread
 
-**Version 1.2**
+**Version 1.4**
 
 ![fire-spread Logo](/images/fire-spread.png)
 
