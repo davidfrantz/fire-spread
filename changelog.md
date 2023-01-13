@@ -1,6 +1,18 @@
 # Changelog
 
-## Version 1.6
+
+## Version 1.4
+
+Release 13.01.2023
+
+Fixed some output bugs.
+Coordinates of geopackage fixed.
+Year when season == -1 fixed.
+Added new fields for simple filtering of dates.
+Switched off debugging symbols in build.
+
+
+## Version 1.3
 
 Release 12.01.2023
 
