@@ -20,6 +20,8 @@ For details on methods, please, refer to our paper:
 
 David Frantz, Marion Stellmes, Achim Röder, Joachim Hill (2016): **Fire spread from MODIS burned area data: obtaining fire dynamics information for every single fire**. *International Journal of Wildland Fire* 25, 1228-1237. https://www.publish.csiro.au/wf/WF16003
 
+Open Access Postprint: https://www.uni-trier.de/fileadmin/fb6/prof/FER/Publikationen/frantz_etal_ijwf_postprint.pdf
+
 
 ## Install
 
