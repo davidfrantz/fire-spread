@@ -20,7 +20,7 @@ typedef struct {
   int *seasons;
   int min_month;
   int min_doy;
-	int nseasons;
+  int nseasons;
 } bands_t;
 
 

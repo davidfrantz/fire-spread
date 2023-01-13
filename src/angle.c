@@ -7,11 +7,11 @@ const double _M_PI2_ = 2.0*M_PI;
 //-------------------------------------------------------------------
 // Convert radian angle to degrees
 float rad2deg(float x){
-	return (x*_R2D_CONV_);
+  return (x*_R2D_CONV_);
 }
 
 //-------------------------------------------------------------------
 // Convert degree angle to radians
 float deg2rad(float x){
-	return (x*_D2R_CONV_);
+  return (x*_D2R_CONV_);
 }
