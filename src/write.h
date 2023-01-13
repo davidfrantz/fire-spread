@@ -18,6 +18,7 @@ extern "C" {
 #include "date.h"
 #include "warp.h"
 
+date_t true_date(int relative_doy, int season, bands_t *bands, char formatted[], size_t size);
 int ogr_create_field(char *name,  OGRFieldType datatype, int width, OGRLayerH *layer);
 int vector_write(char *fname, double *geotran, char *proj, int season, bands_t *bands, int nfire, int *OBJ_ID, int **OBJ_SEED, int *FIRE_HIST, int *OBJ_STARTTIME, int *OBJ_LIFETIME);
 int basic_write(char *fname, double *geotran, char *proj, int season, bands_t *bands, int nfire, int *OBJ_ID, int **OBJ_SEED, int *FIRE_HIST, int *OBJ_STARTTIME, int *OBJ_LIFETIME);

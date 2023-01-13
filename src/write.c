@@ -1,29 +1,36 @@
 #include "write.h"
 
 
-void true_date(int relative_doy, int season, bands_t *bands, char formatted[], size_t size){
-int true_year, true_month, true_doy, true_day;
+date_t true_date(int relative_doy, int season, bands_t *bands, char formatted[], size_t size){
+date_t date;
 int b;
 
 
     for (b=0; b<bands->n; b++){
-      if (bands->seasons[b] == season){
-        true_year = bands->years[b];
-        break;
+      if (season >= 0){
+        if (bands->seasons[b] == season){
+          date.year = bands->years[b];
+          break;
+        }
+      } else {
+        if (bands->seasons[b] == season+1){
+          date.year = bands->years[b]-1;
+          break;
+        }
       }
     } 
 
-    true_doy = relative_doy + bands->min_doy - 1;
-    if (true_doy >= 366){
-      true_doy -= 366;
-      true_year++;
+    date.doy = relative_doy + bands->min_doy - 1;
+    if (date.doy >= 366){
+      date.doy -= 366;
+      date.year++;
     } 
 
-    true_month = doy2m(true_doy);
-    true_day   = doy2d(true_doy);
-    compact_date(true_year, true_month, true_day, formatted, size);
+    date.month = doy2m(date.doy);
+    date.day   = doy2d(date.doy);
+    compact_date(date.year, date.month, date.day, formatted, size);
 
-  return;
+  return date;
 }
 
 
@@ -49,6 +56,7 @@ OGRFeatureH feature;
 OGRGeometryH point;
 double map_x, map_y, lon, lat;
 int id;
+date_t date;
 char datestring[1024];
 
 
@@ -71,6 +79,10 @@ char datestring[1024];
   ogr_create_field("season",         OFTInteger, 12, &layer);
   ogr_create_field("doy_relative",   OFTInteger, 12, &layer);
   ogr_create_field("date",           OFTString,  12, &layer);
+  ogr_create_field("year",           OFTString,  12, &layer);
+  ogr_create_field("month",          OFTString,  12, &layer);
+  ogr_create_field("day",            OFTString,  12, &layer);
+  ogr_create_field("doy",            OFTString,  12, &layer);
   ogr_create_field("area",           OFTInteger, 12, &layer);
   ogr_create_field("lifetime",       OFTInteger, 12, &layer);
   ogr_create_field("main_direction", OFTString,  12, &layer);
@@ -79,7 +91,7 @@ char datestring[1024];
 
     if (FIRE_HIST[id] == 0) continue;
 
-    true_date(OBJ_STARTTIME[id], season, bands, datestring, 1024);
+    date = true_date(OBJ_STARTTIME[id], season, bands, datestring, 1024);
 
     // create feature
     feature = OGR_F_Create(OGR_L_GetLayerDefn(layer));
@@ -88,13 +100,17 @@ char datestring[1024];
     OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "ID"), OBJ_ID[id]);
     OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "season"), season);
     OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "doy_relative"), OBJ_STARTTIME[id]);
-    OGR_F_SetFieldString(feature, OGR_F_GetFieldIndex(feature, "date"), datestring);
+    OGR_F_SetFieldString(feature,  OGR_F_GetFieldIndex(feature, "date"),  datestring);
+    OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "year"),  date.year);
+    OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "month"), date.month);
+    OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "day"),   date.day);
+    OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "doy"),   date.doy);
     OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "area"), FIRE_HIST[id]);
     OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "lifetime"), OBJ_LIFETIME[id]);
-    OGR_F_SetFieldString(feature, OGR_F_GetFieldIndex(feature, "main_direction"), "TBD");
+    OGR_F_SetFieldString(feature,  OGR_F_GetFieldIndex(feature, "main_direction"), "TBD");
 
     map_x = geotran[0] + OBJ_SEED[0][id]*geotran[1];
-    map_y = geotran[3] - OBJ_SEED[1][id]*geotran[5];
+    map_y = geotran[3] + OBJ_SEED[1][id]*geotran[5];
 
     //printf("map x/y: %f/%f\n", map_x, map_y);
     //printf("map proj: %s\n", proj);
@@ -128,6 +144,7 @@ OGRSpatialReferenceH srs;
 FILE *fp = NULL;
 double map_x, map_y, lon, lat;
 int id;
+date_t date;
 char datestring[1024];
 
 
@@ -136,13 +153,13 @@ char datestring[1024];
   srs = OSRNewSpatialReference(NULL);
   OSRImportFromEPSG(srs, 4326);
 
-  fprintf(fp, "ID,season,doy_relative,date,area,lifetime,main_direction,longitude,latitude\n");
+  fprintf(fp, "ID,season,doy_relative,date,year,month,day,doy,area,lifetime,main_direction,longitude,latitude\n");
 
   for (id=0; id<nfire; id++){
 
     if (FIRE_HIST[id] == 0) continue;
 
-    true_date(OBJ_STARTTIME[id], season, bands, datestring, 1024);
+    date = true_date(OBJ_STARTTIME[id], season, bands, datestring, 1024);
 
     map_x = geotran[0] + OBJ_SEED[0][id]*geotran[1];
     map_y = geotran[3] - OBJ_SEED[1][id]*geotran[5];
@@ -153,11 +170,15 @@ char datestring[1024];
 
     warp_any_to_geo(map_x, map_y, &lon, &lat, proj);
 
-    fprintf(fp, "%d,%d,%d,%s,%d,%d,%s,%f,%f\n", 
+    fprintf(fp, "%d,%d,%d,%s,%d,%d,%d,%d,%d,%d,%s,%f,%f\n", 
       OBJ_ID[id],
       season,
       OBJ_STARTTIME[id],
       datestring,
+      date.year,
+      date.month,
+      date.day,
+      date.doy,
       FIRE_HIST[id],
       OBJ_LIFETIME[id],
       "TBD",
@@ -175,6 +196,7 @@ char datestring[1024];
 int extended_write(char *fname, double *geotran, char *proj, int season, bands_t *bands, int nfire, int *OBJ_ID, int *FIRE_HIST, int ***OBJ_GAIN){
 FILE *fp = NULL;
 int id, t, d;
+date_t date;
 char datestring[1024];
 char directions[9][16] = { "IGN", "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
 bool ignited;
@@ -182,7 +204,7 @@ bool ignited;
 
   fp = fopen(fname, "w");
 
-  fprintf(fp, "ID,spread_date,spread_size,spread_direction\n");
+  fprintf(fp, "ID,spread_date,spread_year,spread_month,spread_day,spread_doy,spread_size,spread_direction\n");
 
 
   for (id=0; id<nfire; id++){
@@ -193,12 +215,16 @@ bool ignited;
 
     for (t=0; t<365; t++){
 
-      true_date(t+1, season, bands, datestring, 1024);
+      date = true_date(t+1, season, bands, datestring, 1024);
 
       if (!ignited && OBJ_GAIN[t][0][id] > 0){
-        fprintf(fp, "%d,%s,%d,%s\n", 
+        fprintf(fp, "%d,%s,%d,%d,%d,%d,%d,%s\n", 
           OBJ_ID[id], 
           datestring,
+          date.year,
+          date.month,
+          date.day,
+          date.doy,
           OBJ_GAIN[t][0][id],
           directions[0]
         );
@@ -210,9 +236,13 @@ bool ignited;
 
         if (OBJ_GAIN[t][d][id] == 0) continue;
 
-        fprintf(fp, "%d,%s,%d,%s\n", 
+        fprintf(fp, "%d,%s,%d,%d,%d,%d,%d,%s\n", 
           OBJ_ID[id], 
           datestring,
+          date.year,
+          date.month,
+          date.day,
+          date.doy,
           OBJ_GAIN[t][d][id],
           directions[d]
         );
