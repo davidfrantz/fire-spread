@@ -647,19 +647,7 @@ int ncpu;
         for (w=0; w<16; w++){
           if (s[w] > 0) u[w]/=s[w];
         }
-        if (i==4850 && j==3467){
 
-          for (ii=-1*smoothdist, k=0; ii<=smoothdist; ii++){
-          for (jj=-1*smoothdist; jj<=smoothdist; jj++, k++){
-            printf("%3d ", FIRE_COPY[nx*(i+ii)+j+jj]);
-          }
-          printf("\n");
-          }
-
-
-          printf("%d\n", FIRE_COPY[p]);
-          for (w=0; w<16; w++) printf("%f %d\n", u[w], s[w]);
-        }
 
         minw = -1;
         minu = bstu = 10000;
