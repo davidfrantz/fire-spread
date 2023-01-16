@@ -1,90 +1,82 @@
 #include "queue.h"
 
-struct queue_elmt
-{
-  int r, c;
-  struct queue_elmt *prev, *next;
-};
 
+/** This function creates a FIFO queue using a circular buffer. Free with 
++++ destroy_queue.
+--- q:      queue
+--- size:   size of the buffer
++++ Return: SUCCESS/FAILURE
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++**/
+int create_queue(queue_t *q, int size){
 
-queue_t* create_queue()
-{
-  queue_t *q = (queue_t*) malloc(sizeof(queue_t));
+  q->head = 0;
+  q->tail = 0;
+  q->size = size;
 
-  q->length = 0;
-  q->first = NULL;
-  q->last = NULL;
+  alloc((void**)&q->buf_x, size, sizeof(short));
+  alloc((void**)&q->buf_y, size, sizeof(short));
 
-  return q;
+  return 0;
 }
 
-void destroy_queue(queue_t* q)
-{
-  struct queue_elmt *el, *tmp;
 
-  if (q->length != 0) {
+/** This function frees a FIFO queue
+--- q:      queue
++++ Return: void
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++**/
+void destroy_queue(queue_t *q){
 
-    el = q->first;
+  q->head = 0;
+  q->tail = 0;
+  q->size = 0;
+  
+  free((void*)q->buf_x); q->buf_x = NULL;
+  free((void*)q->buf_y); q->buf_y = NULL;
 
-    while (el->next != NULL) {
-      tmp = el;
-      el = el->next;
-      free((void*)tmp);
-    }
-
-    free((void*)el);
-  }
-
-  free((void*)q);
+  return;
 }
 
-int enqueue(queue_t* q, int row, int col)
-{
-  struct queue_elmt *el;
 
-  if ((el = (struct queue_elmt*) malloc(sizeof(struct queue_elmt))) == NULL)
-    return 0;
+/** This function puts an image coordinate to the FIFO queue
+--- q:      queue
+--- x:      column
+--- y:      row
++++ Return: SUCCESS/FAILURE
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++**/
+int enqueue(queue_t *q, int x, int y){
 
-  el->r = row;
-  el->c = col;
-  el->prev = NULL;
-  el->next = NULL;
-
-  if (q->length == 0) {
-    q->first = el;
-    q->last = el;
+  if ((q->head+1 == q->tail) ||
+      (q->head+1 == q->size && q->tail == 0)){
+    return 1; // head runs into tail (buffer is full)...
   } else {
-    q->last->next = el;
-    el->prev = q->last;
-    q->last = el;
+    q->buf_x[q->head] = (short)x;
+    q->buf_y[q->head] = (short)y;
+    q->head++; // step forward head
+    if(q->head == q->size) q->head = 0; // circular buffer
   }
 
-  q->length += 1;
-
-  return 1;
+  return 0;
 }
 
-int dequeue(queue_t* q, int* row, int* col)
-{
-  struct queue_elmt *el;
 
-  if (q->length == 0) return 0;
+/** This function pulls an image coordinate from the FIFO queue
+--- q:      queue
+--- x:      column
+--- y:      row
++++ Return: SUCCESS/FAILURE
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++**/
+int dequeue(queue_t *q, int *x, int *y){
 
-  el = q->first;
-  q->first = el->next;
 
-  if (q->first == NULL) {
-    q->last = NULL;
+  if (q->tail != q->head){ //see if any data is available
+    *x = (int)q->buf_x[q->tail];
+    *y = (int)q->buf_y[q->tail];
+    q->tail++;  // step forward  tail
+    if (q->tail == q->size) q->tail = 0; // circular buffer
   } else {
-    el->next->prev = NULL;
+    return 1; // nothing in buffer
   }
 
-  *row = el->r;
-  *col = el->c;
-
-  free((void*)el);
-
-  q->length -= 1;
-
-  return 1;
+  return 0;
 }
+

@@ -7,19 +7,20 @@ extern "C" {
 
 #include <stdlib.h>
 #include <stdio.h>
+#include "alloc.h"
 
-typedef struct queue
-{
-  int length;
-  struct queue_elmt *first, *last;
+typedef struct {
+  short *buf_x;
+  short *buf_y;
+  int head;
+  int tail;
+  int size;
 } queue_t;
 
-
-queue_t* create_queue();
+int create_queue(queue_t *q, int size);
 void destroy_queue(queue_t* q);
-
-int enqueue(queue_t* q, int row, int col);
-int dequeue(queue_t* q, int* row, int* col);
+int enqueue(queue_t *q, int x, int y);
+int dequeue(queue_t *q, int *x, int *y);
 
 #ifdef __cplusplus
 }

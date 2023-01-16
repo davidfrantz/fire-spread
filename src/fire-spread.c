@@ -371,7 +371,7 @@ float *neighbor;
 double sumi, sumj, sumk;
 double nowsum, nownum, nowmean, bestmean;
 bool scatter, near;
-queue_t *fifo;
+queue_t fifo;
 FILE *fp = NULL, *ft = NULL;
 size_t res;
 char fname[1024];
@@ -718,7 +718,7 @@ int ncpu;
       // ***************************************************************
 
       // initialize new queue
-      if ((fifo = create_queue()) == NULL){
+      if ((create_queue(&fifo, UINT_MAX)) != 0){
         printf("failed to create new queue!\n"); exit(1);}
 
       // get new fire pixels
@@ -765,8 +765,8 @@ int ncpu;
             if (inew < 0 || inew >= ny || jnew < 0 || jnew >= nx) continue;
             
             if (!OLD_BOOL[nx*inew+jnew]){
-              if (!(ok = enqueue(fifo, i, j))){ // put in queue
-                printf("Failed to allocate enqueue memory\n");
+              if (enqueue(&fifo, i, j) != 0){ // put in queue
+                printf("Failed to enqueue\n");
                 exit(1);
               }
               ii = jj = 10; // pixel wa already put in queue, proceed with next one
@@ -784,7 +784,7 @@ int ncpu;
       // *** STEP TWO: TRACE THE FIRE FRONTS ***************************
       // ***************************************************************
 
-      while (dequeue(fifo, &qi, &qj)){
+      while (dequeue(&fifo, &qi, &qj) == 0){
 
         pold = nx*qi+qj;
 
@@ -833,8 +833,8 @@ int ncpu;
             OBJ_GAIN[t-1][d][id]++;
 
             // put the pixel in the queue
-            if (!(ok = enqueue(fifo, inew, jnew))){
-              printf("Failed to allocate enqueue memory\n");
+            if (enqueue(&fifo, inew, jnew) != 0){
+              printf("Failed to enqueue\n");
               exit(1);
             }
 
@@ -847,8 +847,7 @@ int ncpu;
       }
 
       // free queue's memory
-      destroy_queue(fifo);
-      fifo = NULL;
+      destroy_queue(&fifo);
 
 
       // *** STEP THREE: PUT NEW FIRES IN QUEUE ************************
@@ -947,7 +946,7 @@ int ncpu;
     alloc((void**)&SUBOBJ_MINTIME, MAX_OBJECTS, sizeof(int));
 
     // initialize new queue
-    if ((fifo = create_queue()) == NULL){
+    if ((create_queue(&fifo, UINT_MAX)) != 0){
       printf("failed to create new queue!\n"); exit(1);}
 
     reset_visited();
@@ -963,12 +962,12 @@ int ncpu;
         id = OLD_SEGM[p];
 
         // put the pixel in the queue
-        if (!(ok = enqueue(fifo, i, j))){
-          printf("Failed to allocate enqueue memory\n");
+        if (enqueue(&fifo, i, j) != 0){
+          printf("Failed to enqueue\n");
           exit(1);}
 
         // track the pixel
-        while (dequeue(fifo, &qi, &qj)){
+        while (dequeue(&fifo, &qi, &qj) == 0){
 
           pnew = xy_to_p(qj, qi);
           if (VISITED[pnew]) continue;
@@ -996,8 +995,8 @@ int ncpu;
                       &jnew, &inew, &pnew)) continue;
 
             if (!VISITED[pnew] && OLD_BOOL[pnew] && OLD_SEGM[pnew] == id){
-              if (!(ok = enqueue(fifo, inew, jnew))){
-                printf("Failed to allocate enqueue memory\n");
+              if (enqueue(&fifo, inew, jnew) != 0){
+                printf("Failed to enqueue\n");
                 exit(1);}
             }
 
@@ -1010,7 +1009,7 @@ int ncpu;
     }
 
     // free queue's memory
-    destroy_queue(fifo); fifo = NULL;
+    destroy_queue(&fifo);
 
     alloc_2D((void***)&SUBOBJ_SEED, 2, nsub, sizeof(int));
     alloc_2D((void***)&SUBOBJ_SEEDCALC, 3, nsub, sizeof(double));
@@ -1058,7 +1057,7 @@ int ncpu;
 
 
       // initialize new queue
-      if ((fifo = create_queue()) == NULL){
+      if ((create_queue(&fifo, UINT_MAX)) != 0){
         printf("failed to create new queue!\n"); exit(1);}
 
       reset_visited();
@@ -1098,13 +1097,13 @@ int ncpu;
           if (SUBOBJ_VALID[subid-1]){ VISITED[p] = true; continue;}
 
           // put the pixel in the queue
-          if (!(ok = enqueue(fifo, i, j))){
-            printf("Failed to allocate enqueue memory\n");
+          if (enqueue(&fifo, i, j) != 0){
+            printf("Failed to enqueue\n");
             exit(1);}
 
           nadj = 0;
           // track the pixel
-          while (dequeue(fifo, &qi, &qj)){
+          while (dequeue(&fifo, &qi, &qj) == 0){
 
             pnew = xy_to_p(qj, qi);
             if (VISITED[pnew]) continue;
@@ -1127,8 +1126,8 @@ int ncpu;
                 }
               } else if (!VISITED[pnew] && OLD_BOOL[pnew] && SUB_SEGM[pnew] == subid){
                 // put the pixel in the queue
-                if (!(ok = enqueue(fifo, inew, jnew))){
-                  printf("Failed to allocate enqueue memory\n"); exit(1);}
+                if (enqueue(&fifo, inew, jnew) != 0){
+                  printf("Failed to enqueue\n"); exit(1);}
               }
 
             }
@@ -1168,11 +1167,11 @@ int ncpu;
           if (bestmean > temp__dist*2) continue;
 
           // put the pixel in the queue
-          if (!(ok = enqueue(fifo, i, j))){
-            printf("Failed to allocate enqueue memory\n"); exit(1);}
+          if (enqueue(&fifo, i, j) != 0){
+            printf("Failed to enqueue\n"); exit(1);}
 
           // track the patch again and re-assign
-          while (dequeue(fifo, &qi, &qj)){
+          while (dequeue(&fifo, &qi, &qj) == 0){
 
             pnew = xy_to_p(qj, qi);
 
@@ -1204,8 +1203,8 @@ int ncpu;
 
               if (OLD_BOOL[pnew] && SUB_SEGM[pnew] == subid){
                 // put the pixel in the queue
-                if (!(ok = enqueue(fifo, inew, jnew))){
-                  printf("Failed to allocate enqueue memory\n"); exit(1);}
+                if (enqueue(&fifo, inew, jnew) != 0){
+                  printf("Failed to enqueue\n"); exit(1);}
               }
 
             }
@@ -1222,7 +1221,7 @@ int ncpu;
       }
 
       // free queue's memory
-      destroy_queue(fifo); fifo = NULL;
+      destroy_queue(&fifo);
 
 
       // *** STEP TWO: ADD NEW PATCHES *********************************
@@ -1232,7 +1231,7 @@ int ncpu;
       if (nsub_invalid == msub_invalid){
 
         // initialize new queue
-        if ((fifo = create_queue()) == NULL){
+        if ((create_queue(&fifo, UINT_MAX)) != 0){
           printf("failed to create new queue!\n"); exit(1);}
 
         mintime++; // increment the "oldest" pixels
@@ -1253,8 +1252,8 @@ int ncpu;
             // if old: add new seed
             if (SUBOBJ_MINTIME[subid-1] < mintime){
 
-              if (!(ok = enqueue(fifo, i, j))){
-                printf("Failed to allocate enqueue memory\n"); exit(1);}
+              if (enqueue(&fifo, i, j) != 0){
+                printf("Failed to enqueue\n"); exit(1);}
 
               nfire++;  // increment total number of fire patches
               addfire++; // increment patches that were added in this iteration
@@ -1267,7 +1266,7 @@ int ncpu;
               FIRE_SEED[nx*OBJ_SEED[1][nfire-1]+OBJ_SEED[0][nfire-1]] = nfire; // draw new seed
 
               // track this patch
-              while (dequeue(fifo, &qi, &qj)){
+              while (dequeue(&fifo, &qi, &qj) == 0){
 
                 pnew = xy_to_p(qj, qi);
                 if (VISITED[pnew]) continue;
@@ -1298,8 +1297,8 @@ int ncpu;
 
                   if (!VISITED[pnew] && OLD_BOOL[pnew] && SUB_SEGM[pnew] == subid){
                     // put the pixel in the queue
-                    if (!(ok = enqueue(fifo, inew, jnew))){
-                      printf("Failed to allocate enqueue memory\n"); exit(1);}
+                    if (enqueue(&fifo, inew, jnew) != 0){
+                      printf("Failed to enqueue\n"); exit(1);}
                   }
 
                 }
@@ -1312,7 +1311,7 @@ int ncpu;
         }
 
         if (v) printf("added %d new patches that were burnt before DOY %d\n", addfire, mintime);
-        destroy_queue(fifo); fifo = NULL;
+        destroy_queue(&fifo);
 
       }
 
