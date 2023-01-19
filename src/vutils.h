@@ -9,6 +9,9 @@ extern "C" {
 #include <stdio.h>
 #include <stdbool.h>
 #include "dtype.h"
+#include "alloc.h"
+
+int modal(int *arr, int n);
 
 int    imaxoftwo(int x, int y);
 int2u  imaxoftwo2u(int2u x, int2u y);

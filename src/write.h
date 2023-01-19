@@ -20,9 +20,10 @@ extern "C" {
 
 date_t true_date(int relative_doy, int season, bands_t *bands, char formatted[], size_t size);
 int ogr_create_field(char *name,  OGRFieldType datatype, int width, OGRLayerH *layer);
-int vector_write(char *fname, double *geotran, char *proj, int season, bands_t *bands, int nfire, int *OBJ_ID, int **OBJ_SEED, int *FIRE_HIST, int *OBJ_STARTTIME, int *OBJ_LIFETIME);
-int basic_write(char *fname, double *geotran, char *proj, int season, bands_t *bands, int nfire, int *OBJ_ID, int **OBJ_SEED, int *FIRE_HIST, int *OBJ_STARTTIME, int *OBJ_LIFETIME);
-int extended_write(char *fname, double *geotran, char *proj, int season, bands_t *bands, int nfire, int *OBJ_ID, int *FIRE_HIST, int ***OBJ_GAIN);
+int vector_write(char *fname, double *geotran, char *proj, int season, bands_t *bands, fire_t *FIRE);
+int basic_write(char *fname, double *geotran, char *proj, int season, bands_t *bands, fire_t *FIRE);
+int extended_write(char *fname, double *geotran, char *proj, int season, bands_t *bands, fire_t *FIRE);
+int raster_write(char *fname, int nx, int ny, double *geotran, char *proj, fire_t *FIRE);
 
 #ifdef __cplusplus
 }

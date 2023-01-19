@@ -13,8 +13,8 @@ int create_queue(queue_t *q, int size){
   q->tail = 0;
   q->size = size;
 
-  alloc((void**)&q->buf_x, size, sizeof(short));
-  alloc((void**)&q->buf_y, size, sizeof(short));
+  alloc((void**)&q->buf_x, size, sizeof(short)); // dies on failure
+  alloc((void**)&q->buf_y, size, sizeof(short)); // dies on failure
 
   return 0;
 }
@@ -47,6 +47,7 @@ int enqueue(queue_t *q, int x, int y){
 
   if ((q->head+1 == q->tail) ||
       (q->head+1 == q->size && q->tail == 0)){
+    printf("This is not a royal queue. Not enough space.\n");
     return 1; // head runs into tail (buffer is full)...
   } else {
     q->buf_x[q->head] = (short)x;

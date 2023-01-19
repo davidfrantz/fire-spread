@@ -1,5 +1,41 @@
 #include "vutils.h"
 
+
+int modal(int *arr, int n){
+int count = 0;
+int mod = arr[4];
+int modCount = 0;
+int i, j;
+bool *valid;
+
+
+  alloc((void**)&valid, n, sizeof(bool));
+
+  for (j=0; j<n; j++){
+    if (arr[j] == 0) valid[j] = false; else valid[j] = true;
+  }
+
+  for (j=0; j<n; j++){
+    if (!valid[j]) continue;
+    count = 0;
+    for (i=0; i<n; i++){
+      if (!valid[i]) continue;
+      if (arr[j] == arr[i]){
+        count += 1;
+      }
+    }
+    if (count > modCount){
+      mod = arr[j];
+      modCount = count;
+    }
+  }
+
+  free((void*)valid);
+
+  return mod;
+}
+
+
 //-------------------------------------------------------------------
 //  return maximum of two integers
 int imaxoftwo(int x, int y){

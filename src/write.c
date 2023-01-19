@@ -34,7 +34,7 @@ int b;
 }
 
 
-int ogr_create_field(char const *name,  OGRFieldType datatype, int width, OGRLayerH *layer){
+int ogr_create_field(char const *name, OGRFieldType datatype, int width, OGRLayerH *layer){
 OGRFieldDefnH field;
 
   field = OGR_Fld_Create(name, datatype);
@@ -47,7 +47,7 @@ OGRFieldDefnH field;
 }
 
 
-int vector_write(char *fname, double *geotran, char *proj, int season, bands_t *bands, int nfire, int *OBJ_ID, int **OBJ_SEED, int *FIRE_HIST, int *OBJ_STARTTIME, int *OBJ_LIFETIME){
+int vector_write(char *fname, double *geotran, char *proj, int season, bands_t *bands, fire_t *FIRE){
 GDALDriverH driver;
 OGRSpatialReferenceH srs;
 GDALDatasetH fp;
@@ -87,30 +87,30 @@ char datestring[1024];
   ogr_create_field("lifetime",       OFTInteger, 12, &layer);
   ogr_create_field("main_direction", OFTString,  12, &layer);
 
-  for (id=0; id<nfire; id++){
+  for (id=0; id<FIRE->nfire; id++){
 
-    if (FIRE_HIST[id] == 0) continue;
+    if (FIRE->FIRE_HIST[id] == 0) continue;
 
-    date = true_date(OBJ_STARTTIME[id], season, bands, datestring, 1024);
+    date = true_date(FIRE->OBJ_STARTTIME[id], season, bands, datestring, 1024);
 
     // create feature
     feature = OGR_F_Create(OGR_L_GetLayerDefn(layer));
 
     // set fields
-    OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "ID"), OBJ_ID[id]);
+    OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "ID"), FIRE->OBJ_ID[id]);
     OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "season"), season);
-    OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "doy_relative"), OBJ_STARTTIME[id]);
+    OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "doy_relative"), FIRE->OBJ_STARTTIME[id]);
     OGR_F_SetFieldString(feature,  OGR_F_GetFieldIndex(feature, "date"),  datestring);
     OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "year"),  date.year);
     OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "month"), date.month);
     OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "day"),   date.day);
     OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "doy"),   date.doy);
-    OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "area"), FIRE_HIST[id]);
-    OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "lifetime"), OBJ_LIFETIME[id]);
+    OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "area"), FIRE->FIRE_HIST[id]);
+    OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "lifetime"), FIRE->OBJ_LIFETIME[id]);
     OGR_F_SetFieldString(feature,  OGR_F_GetFieldIndex(feature, "main_direction"), "TBD");
 
-    map_x = geotran[0] + OBJ_SEED[0][id]*geotran[1];
-    map_y = geotran[3] + OBJ_SEED[1][id]*geotran[5];
+    map_x = geotran[0] + FIRE->OBJ_SEED[0][id]*geotran[1];
+    map_y = geotran[3] + FIRE->OBJ_SEED[1][id]*geotran[5];
 
     //printf("map x/y: %f/%f\n", map_x, map_y);
     //printf("map proj: %s\n", proj);
@@ -139,7 +139,7 @@ char datestring[1024];
 
 
 
-int basic_write(char *fname, double *geotran, char *proj, int season, bands_t *bands, int nfire, int *OBJ_ID, int **OBJ_SEED, int *FIRE_HIST, int *OBJ_STARTTIME, int *OBJ_LIFETIME){
+int basic_write(char *fname, double *geotran, char *proj, int season, bands_t *bands, fire_t *FIRE){
 OGRSpatialReferenceH srs;
 FILE *fp = NULL;
 double map_x, map_y, lon, lat;
@@ -155,14 +155,14 @@ char datestring[1024];
 
   fprintf(fp, "ID,season,doy_relative,date,year,month,day,doy,area,lifetime,main_direction,longitude,latitude\n");
 
-  for (id=0; id<nfire; id++){
+  for (id=0; id<FIRE->nfire; id++){
 
-    if (FIRE_HIST[id] == 0) continue;
+    if (FIRE->FIRE_HIST[id] == 0) continue;
 
-    date = true_date(OBJ_STARTTIME[id], season, bands, datestring, 1024);
+    date = true_date(FIRE->OBJ_STARTTIME[id], season, bands, datestring, 1024);
 
-    map_x = geotran[0] + OBJ_SEED[0][id]*geotran[1];
-    map_y = geotran[3] - OBJ_SEED[1][id]*geotran[5];
+    map_x = geotran[0] + FIRE->OBJ_SEED[0][id]*geotran[1];
+    map_y = geotran[3] - FIRE->OBJ_SEED[1][id]*geotran[5];
 
     //printf("map x/y: %f/%f\n", map_x, map_y);
     //printf("map proj: %s\n", proj);
@@ -171,16 +171,16 @@ char datestring[1024];
     warp_any_to_geo(map_x, map_y, &lon, &lat, proj);
 
     fprintf(fp, "%d,%d,%d,%s,%d,%d,%d,%d,%d,%d,%s,%f,%f\n", 
-      OBJ_ID[id],
+      FIRE->OBJ_ID[id],
       season,
-      OBJ_STARTTIME[id],
+      FIRE->OBJ_STARTTIME[id],
       datestring,
       date.year,
       date.month,
       date.day,
       date.doy,
-      FIRE_HIST[id],
-      OBJ_LIFETIME[id],
+      FIRE->FIRE_HIST[id],
+      FIRE->OBJ_LIFETIME[id],
       "TBD",
       lon,
       lat);
@@ -193,7 +193,7 @@ char datestring[1024];
 }
 
 
-int extended_write(char *fname, double *geotran, char *proj, int season, bands_t *bands, int nfire, int *OBJ_ID, int *FIRE_HIST, int ***OBJ_GAIN){
+int extended_write(char *fname, double *geotran, char *proj, int season, bands_t *bands, fire_t *FIRE){
 FILE *fp = NULL;
 int id, t, d;
 date_t date;
@@ -207,9 +207,9 @@ bool ignited;
   fprintf(fp, "ID,spread_date,spread_year,spread_month,spread_day,spread_doy,spread_size,spread_direction\n");
 
 
-  for (id=0; id<nfire; id++){
+  for (id=0; id<FIRE->nfire; id++){
 
-    if (FIRE_HIST[id] == 0) continue;
+    if (FIRE->FIRE_HIST[id] == 0) continue;
 
     ignited = false;
 
@@ -217,15 +217,15 @@ bool ignited;
 
       date = true_date(t+1, season, bands, datestring, 1024);
 
-      if (!ignited && OBJ_GAIN[t][0][id] > 0){
+      if (!ignited && FIRE->OBJ_GAIN[t][0][id] > 0){
         fprintf(fp, "%d,%s,%d,%d,%d,%d,%d,%s\n", 
-          OBJ_ID[id], 
+          FIRE->OBJ_ID[id], 
           datestring,
           date.year,
           date.month,
           date.day,
           date.doy,
-          OBJ_GAIN[t][0][id],
+          FIRE->OBJ_GAIN[t][0][id],
           directions[0]
         );
         ignited = true;
@@ -234,16 +234,16 @@ bool ignited;
 
       for (d=1; d<9; d++){ 
 
-        if (OBJ_GAIN[t][d][id] == 0) continue;
+        if (FIRE->OBJ_GAIN[t][d][id] == 0) continue;
 
         fprintf(fp, "%d,%s,%d,%d,%d,%d,%d,%s\n", 
-          OBJ_ID[id], 
+          FIRE->OBJ_ID[id], 
           datestring,
           date.year,
           date.month,
           date.day,
           date.doy,
-          OBJ_GAIN[t][d][id],
+          FIRE->OBJ_GAIN[t][d][id],
           directions[d]
         );
 
@@ -255,6 +255,72 @@ bool ignited;
   }
 
   fclose(fp);
+
+  return 0;
+}
+
+
+int raster_write(char *fname, int nx, int ny, double *geotran, char *proj, fire_t *FIRE){
+GDALDatasetH file = NULL;
+GDALRasterBandH band = NULL;
+GDALDriverH driver = NULL;
+char **options = NULL;
+
+
+  options = CSLSetNameValue(options, "TILED", "YES");
+  options = CSLSetNameValue(options, "COMPRESS", "LZW");
+  options = CSLSetNameValue(options, "PREDICTOR", "2");
+  options = CSLSetNameValue(options, "INTERLEAVE", "BAND");
+  options = CSLSetNameValue(options, "BIGTIFF", "YES");
+
+  if ((driver = GDALGetDriverByName("GTiff")) == NULL){
+    printf("%s driver not found\n", "GTiff"); exit(1);}
+
+  if ((file = GDALCreate(driver, fname, nx, ny, 4, GDT_Int32, options)) == NULL){
+    printf("Error creating memory file %s. ", fname); exit(1);}
+
+  band = GDALGetRasterBand(file, 1);
+  if (GDALRasterIO(band, GF_Write, 0, 0, 
+        nx, ny, FIRE->OLD_SEGM, 
+        nx, ny, GDT_Int32, 0, 0) == CE_Failure){
+        printf("Unable to write %s. ", fname); exit(1);}
+  GDALSetDescription(band, "fire segmentation");
+  GDALSetRasterNoDataValue(band, 0);
+
+  band = GDALGetRasterBand(file, 2);
+  if (GDALRasterIO(band, GF_Write, 0, 0, 
+        nx, ny, FIRE->FIRE_SEED, 
+        nx, ny, GDT_Int32, 0, 0) == CE_Failure){
+        printf("Unable to write %s. ", fname); exit(1);}
+  GDALSetDescription(band, "fire seeds");
+  GDALSetRasterNoDataValue(band, 0);
+
+  band = GDALGetRasterBand(file, 3);
+  if (GDALRasterIO(band, GF_Write, 0, 0, 
+        nx, ny, FIRE->FIRE_TIME, 
+        nx, ny, GDT_Int32, 0, 0) == CE_Failure){
+        printf("Unable to write %s. ", fname); exit(1);}
+  GDALSetDescription(band, "fire timing");
+  GDALSetRasterNoDataValue(band, 0);
+
+  band = GDALGetRasterBand(file, 4);
+  if (GDALRasterIO(band, GF_Write, 0, 0, 
+        nx, ny, FIRE->FIRE_DENSITY, 
+        nx, ny, GDT_Int32, 0, 0) == CE_Failure){
+        printf("Unable to write %s. ", fname); exit(1);}
+  GDALSetDescription(band, "fire density");
+  GDALSetRasterNoDataValue(band, 0);
+
+  #pragma omp critical
+  {
+    GDALSetGeoTransform(file, geotran);
+    GDALSetProjection(file,   proj);
+  }
+  
+  GDALClose(file);
+
+  CSLDestroy(options);
+
 
   return 0;
 }
