@@ -7,7 +7,7 @@ GDAL=-I/usr/include/gdal -L/usr/lib -Wl,-rpath=/usr/lib
 LDGDAL=-lgdal
 
 CFLAGS=-fopenmp -O3 
-CFLAGS=-g -Wall -fopenmp 
+#CFLAGS=-g -Wall -fopenmp 
 
 .PHONY: all install clean
 
@@ -24,6 +24,9 @@ date: src/date.c
 
 focalfuns: src/focalfuns.c
 	$(GCC) $(CFLAGS) -c src/focalfuns.c -o focalfuns.o
+
+read: src/read.c
+	$(GCC) $(CFLAGS) $(GDAL) -c src/read.c -o read.o $(LDGDAL)
 
 write: src/write.c
 	$(G11) $(CFLAGS) $(GDAL) -c src/write.c -o write.o $(LDGDAL)
@@ -52,7 +55,7 @@ fire-phase1: src/fire-phase1.c
 fire-phase2: src/fire-phase2.c
 	$(GCC) $(CFLAGS) -c src/fire-phase2.c -o fire-phase2.o
 
-fire-spread: alloc angle date focalfuns write queue spiral string vutils warp fire-funs fire-phase1 fire-phase2 src/fire-spread.c
+fire-spread: alloc angle date focalfuns read write queue spiral string vutils warp fire-funs fire-phase1 fire-phase2 src/fire-spread.c
 	$(G11) $(CFLAGS) $(GDAL) -o fire-spread src/fire-spread.c *.o -lm $(LDGDAL)
 
 install:

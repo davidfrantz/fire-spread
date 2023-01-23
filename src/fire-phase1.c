@@ -116,7 +116,7 @@ int smoothsize;
   
   smoothsize = (args->smoothdist*2+1)*(args->smoothdist*2+1);
   alloc_2D((void***)&dirmask, 16, smoothsize, sizeof(int));
-  phase1_directional_mask(dirmask, smoothsize);
+  phase1_directional_mask(dirmask, args->smoothdist);
 
 
   alloc((void**)&MASK, nc, sizeof(bool));
@@ -234,7 +234,7 @@ double sumi, sumj, sumk;
     for (id=0; id<FIRE->nfire; id++) FIRE->OBJ_ID[id] = id+1;
   }
 
-  memset(&FIRE->VISITED, 0, sizeof(bool)*nc);
+  memset(FIRE->VISITED, 0, sizeof(bool)*nc);
 
 
   // try to improve seeds
@@ -414,7 +414,7 @@ double sumi, sumj, sumk;
   connectedcomponents(phase1->NOW_BOOL, phase1->NOW_SEGM, ny, nx);
   n_add = imax(phase1->NOW_SEGM, nc);
 
-  memset(&FIRE->VISITED, 0, sizeof(bool)*nc);
+  memset(FIRE->VISITED, 0, sizeof(bool)*nc);
 
   // try to improve seeds
   for (i=0, p=0; i<ny; i++){

@@ -39,7 +39,7 @@ queue_t fifo;
   // initialize new queue
   create_queue(&fifo, args->queue_size);
 
-  memset(&FIRE->VISITED, 0, sizeof(bool)*nc);
+  memset(FIRE->VISITED, 0, sizeof(bool)*nc);
 
   // sub-segment the segmentation
   for (i=0, p=0; i<ny; i++){
@@ -149,7 +149,7 @@ queue_t fifo;
   // initialize new queue
   create_queue(&fifo, args->queue_size);
 
-  memset(&FIRE->VISITED, 0, sizeof(bool)*nc);
+  memset(FIRE->VISITED, 0, sizeof(bool)*nc);
 
 
   if (*D == 0){
@@ -325,7 +325,7 @@ queue_t fifo;
 
   (*mintime)++; // increment the "oldest" pixels
 
-  memset(&FIRE->VISITED, 0, sizeof(bool)*nc);
+  memset(FIRE->VISITED, 0, sizeof(bool)*nc);
 
   for (i=0, p=0; i<ny; i++){
   for (j=0; j<nx; j++, p++){
