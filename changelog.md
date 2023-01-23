@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 1.5
+
+Release 23.01.2023
+
+Completely restructured code.
+New parameter queue-size is required (see readme).
+
 
 ## Version 1.4
 
