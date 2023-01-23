@@ -55,7 +55,7 @@ You have to extract the data before using it.
         input-stack input-dates output-dir basename \
         init-searchdist track-searchdist \
         temp-dist density-dist min-size smooth-dist \
-        ncpu verbose
+        ncpu queue-size verbose
 
 
 |Argument| Short Description|
@@ -71,6 +71,7 @@ You have to extract the data before using it.
 |min-size|see paper|
 |smooth-dist|see paper|
 |ncpu|number of CPUs|
+|queue-size|buffer size of first-in-first-out queue|
 |verbose|print detailed information (v) or be quiet (q)|
 
 **Sample call**:
@@ -85,7 +86,7 @@ You have to extract the data before using it.
         /data/timeseries.txt \
         /data/output \
         example_esacci \
-        10 10 5 12 2 3 10 v
+        10 10 5 12 2 3 10 100000 v
 
 
 ## Input data
@@ -109,6 +110,11 @@ You have to extract the data before using it.
 * last line should be empty
 * use Unix EOL
 
+### queue size
+
+* the queue size indicates the maximum number of items that can be held in the queue array.
+  If this number is too low, just give a higher value until it works (we recommend iteratively increasing by a factor of 10).
+  Admittedly, this is not the smartest implementation, but much more time-efficient than re-allocating memory dynamically.
 
 ## A short note on the code
 
