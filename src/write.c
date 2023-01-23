@@ -34,6 +34,28 @@ int b;
 }
 
 
+int main_direction(int id, fire_t *FIRE){
+int t, d, dmax = 0;
+double num[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+  for (t=0; t<365; t++){
+
+    for (d=1; d<9; d++){ 
+      num[d] += FIRE->OBJ_GAIN[t][d][id];
+    }
+
+  }
+
+
+  for (d=1; d<9; d++){ 
+    if (num[d] > num[d-1]) dmax = d;
+  }
+
+
+  return dmax;
+}
+
+
 int ogr_create_field(char const *name, OGRFieldType datatype, int width, OGRLayerH *layer){
 OGRFieldDefnH field;
 
@@ -58,6 +80,8 @@ double map_x, map_y, lon, lat;
 int id;
 date_t date;
 char datestring[1024];
+char directions[9][16] = { "NA", "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
+int dir;
 
 
   if ((driver = OGRGetDriverByName("GPKG")) == NULL){
@@ -92,6 +116,7 @@ char datestring[1024];
     if (FIRE->FIRE_HIST[id] == 0) continue;
 
     date = true_date(FIRE->OBJ_STARTTIME[id], season, bands, datestring, 1024);
+    dir = main_direction(id, FIRE);
 
     // create feature
     feature = OGR_F_Create(OGR_L_GetLayerDefn(layer));
@@ -107,7 +132,7 @@ char datestring[1024];
     OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "doy"),   date.doy);
     OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "area"), FIRE->FIRE_HIST[id]);
     OGR_F_SetFieldInteger(feature, OGR_F_GetFieldIndex(feature, "lifetime"), FIRE->OBJ_LIFETIME[id]);
-    OGR_F_SetFieldString(feature,  OGR_F_GetFieldIndex(feature, "main_direction"), "TBD");
+    OGR_F_SetFieldString(feature,  OGR_F_GetFieldIndex(feature, "main_direction"), directions[dir]);
 
     map_x = geotran[0] + FIRE->OBJ_SEED[0][id]*geotran[1];
     map_y = geotran[3] + FIRE->OBJ_SEED[1][id]*geotran[5];
@@ -146,6 +171,8 @@ double map_x, map_y, lon, lat;
 int id;
 date_t date;
 char datestring[1024];
+char directions[9][16] = { "NA", "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
+int dir;
 
 
   fp = fopen(fname, "w");
@@ -160,6 +187,7 @@ char datestring[1024];
     if (FIRE->FIRE_HIST[id] == 0) continue;
 
     date = true_date(FIRE->OBJ_STARTTIME[id], season, bands, datestring, 1024);
+    dir = main_direction(id, FIRE);
 
     map_x = geotran[0] + FIRE->OBJ_SEED[0][id]*geotran[1];
     map_y = geotran[3] - FIRE->OBJ_SEED[1][id]*geotran[5];
@@ -181,7 +209,7 @@ char datestring[1024];
       date.doy,
       FIRE->FIRE_HIST[id],
       FIRE->OBJ_LIFETIME[id],
-      "TBD",
+      directions[dir],
       lon,
       lat);
 
